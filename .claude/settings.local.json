@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /d/Projects/ggsaSponsor -type f -path */pages/* -name *.ts -o -path */pages/* -name *.tsx -o -path */app/* -name *.ts -o -path */app/* -name *.tsx ! -path */node_modules/*)",
+      "Bash(grep -r NEXT_PUBLIC_ /d/Projects/ggsaSponsor --include=*.ts --include=*.tsx --include=*.js ! -path */node_modules/*)",
+      "Bash(grep:*)",
+      "Bash(cat app/admin/submissions/*/page.tsx)",
+      "Bash(cat:*)",
+      "Bash(npm run:*)",
+      "Bash(npx tsc:*)",
+      "Bash(ls:*)",
+      "Bash(curl -s http://localhost:3000/admin/submissions)"
+    ]
+  }
+}
