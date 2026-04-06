@@ -1,28 +1,24 @@
 // deploy/ecosystem.config.js
 // Start:   pm2 start deploy/ecosystem.config.js --env production
-// Reload:  pm2 reload ggsa --env production   (zero-downtime)
-// Logs:    pm2 logs ggsa
+// Reload:  pm2 reload sponsor --env production   (zero-downtime)
+// Logs:    pm2 logs sponsor
 // Monitor: pm2 monit
 
 module.exports = {
   apps: [
     {
-      name: "ggsa",
-      script: "node_modules/.bin/next",
+      name: "sponsor",
+      script: "node_modules/next/dist/bin/next",
       args: "start",
-      cwd: "/var/www/ggsa",
-      instances: "max", // One worker per CPU core
-      exec_mode: "cluster", // Enables zero-downtime reload
+      cwd: "/var/www/ggsasponsor",
+      instances: 1,
+      exec_mode: "fork",
       listen_timeout: 10000,
       kill_timeout: 5000,
-      env: {
-        NODE_ENV: "development",
-        PORT: 3000,
-      },
       env_production: {
         NODE_ENV: "production",
-        PORT: 3000,
-        HOSTNAME: "127.0.0.1", // Bind to loopback only; nginx is the gateway
+        PORT: 3008,
+        HOSTNAME: "127.0.0.1",
       },
       max_memory_restart: "512M",
       merge_logs: true,
@@ -32,4 +28,3 @@ module.exports = {
     },
   ],
 };
-
