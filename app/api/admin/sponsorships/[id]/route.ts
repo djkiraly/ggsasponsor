@@ -8,6 +8,33 @@ import { getAdminServerSession } from "@/auth";
 import { auditLog } from "@/lib/audit";
 import { sponsorships } from "@/db/schema";
 
+export async function GET(
+  _req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getAdminServerSession();
+    if (!session) return jsonError("Unauthorized", 401, "UNAUTHORIZED");
+
+    const db = requireDb();
+    const { id: rawId } = await context.params;
+    const id = z.string().uuid().safeParse(rawId);
+    if (!id.success) return jsonError("Invalid sponsorship ID", 400, "INVALID_ID");
+
+    const rows = await db
+      .select()
+      .from(sponsorships)
+      .where(eq(sponsorships.id, id.data));
+
+    if (rows.length === 0) return jsonError("Submission not found", 404, "NOT_FOUND");
+
+    return NextResponse.json(rows[0]);
+  } catch (err) {
+    console.error("Admin sponsorship read failed:", err);
+    return jsonError("Failed to load sponsorship", 500, "ADMIN_SPONSORSHIP_READ_FAILED");
+  }
+}
+
 const BodySchema = z.object({
   status: z.enum(["pending", "approved", "rejected"]).optional(),
   notes: z.string().optional(),

@@ -160,7 +160,8 @@ export default function AdminSubmissionsPage() {
                     <th className="px-5 py-3">Sponsor</th>
                     <th className="px-5 py-3">Type</th>
                     <th className="px-5 py-3">Amount</th>
-                    <th className="px-5 py-3">Payment</th>
+                    <th className="px-5 py-3">Payment Type</th>
+                    <th className="px-5 py-3">Payment Status</th>
                     <th className="px-5 py-3">Status</th>
                     <th className="px-5 py-3">Date</th>
                   </tr>
@@ -180,6 +181,9 @@ export default function AdminSubmissionsPage() {
                         </td>
                         <td className="px-5 py-3 text-slate-700">{TYPE_LABEL[item.sponsorship_type] ?? item.sponsorship_type}</td>
                         <td className="px-5 py-3 font-medium text-slate-900">{formatUsd(item.amount_paid_cents)}</td>
+                        <td className="px-5 py-3 text-slate-700">
+                          {item.payment_method_type === "us_bank_account" ? "ACH" : item.payment_method_type === "card" ? "Card" : item.payment_method_type ?? "—"}
+                        </td>
                         <td className="px-5 py-3">
                           <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                             item.stripe_payment_status === "succeeded"
@@ -199,7 +203,8 @@ export default function AdminSubmissionsPage() {
                           </span>
                         </td>
                         <td className="px-5 py-3 text-slate-500">
-                          {new Date(item.created_at).toLocaleDateString()}
+                          <div>{new Date(item.created_at).toLocaleDateString()}</div>
+                          <div className="text-xs">{new Date(item.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}</div>
                         </td>
                       </tr>
                     );

@@ -38,6 +38,11 @@ const TYPE_LABEL: Record<string, string> = {
   both: "Team + Banner Sponsorship",
 };
 
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  card: "Credit / Debit Card",
+  us_bank_account: "Bank Account (ACH)",
+};
+
 const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
   pending: { cls: "bg-amber-100 text-amber-800", label: "Pending" },
   approved: { cls: "bg-green-100 text-green-800", label: "Approved" },
@@ -59,13 +64,11 @@ export default function AdminSubmissionDetailPage() {
   async function fetchItem() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/sponsorships?search=${id}&limit=1`);
-      if (!res.ok) throw new Error("Failed to load");
+      const res = await fetch(`/api/admin/sponsorships/${id}`);
+      if (!res.ok) throw new Error("Submission not found");
       const data = await res.json();
-      const found = data.items?.find((i: Sponsorship) => i.id === id);
-      if (!found) throw new Error("Submission not found");
-      setItem(found);
-      setNotes(found.notes ?? "");
+      setItem(data);
+      setNotes(data.notes ?? "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
@@ -177,11 +180,11 @@ export default function AdminSubmissionDetailPage() {
           <dl className="space-y-3 text-sm">
             <Row label="Type" value={TYPE_LABEL[item.sponsorship_type] ?? item.sponsorship_type} />
             <Row label="Amount Paid" value={formatUsd(item.amount_paid_cents)} />
-            <Row label="Payment Method" value={item.payment_method_type === "us_bank_account" ? "ACH" : "Card"} />
+            <Row label="Payment Type" value={PAYMENT_METHOD_LABEL[item.payment_method_type ?? ""] ?? item.payment_method_type ?? "Unknown"} />
             <Row label="Payment Status" value={item.stripe_payment_status ?? "unknown"} />
             {item.jersey_color_primary && <Row label="Jersey Primary" value={item.jersey_color_primary} />}
             {item.jersey_color_secondary && <Row label="Jersey Secondary" value={item.jersey_color_secondary} />}
-            <Row label="Date" value={new Date(item.created_at).toLocaleString()} />
+            <Row label="Submitted" value={new Date(item.created_at).toLocaleString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })} />
             {item.stripe_payment_intent_id && (
               <Row label="Transaction ID" value={item.stripe_payment_intent_id} mono />
             )}
