@@ -561,6 +561,8 @@ export function PublicSponsorshipForm({
   useEffect(() => {
     // Keep amount + PaymentIntent aligned with current tier/payment method.
     // PaymentIntent is only created when we have stripe + settings + a valid email.
+    // Skip for check payments — no Stripe involved.
+    if (paymentMethodType === "check") return;
     if (!stripePromise || !settings) return;
     if (!debouncedEmail || !debouncedEmail.includes("@")) return;
 

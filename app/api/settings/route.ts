@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { settings } from "@/db/schema";
 import { requireDb } from "@/lib/db";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 /** Keys that are safe to expose publicly. */
 const PUBLIC_KEYS = new Set([
