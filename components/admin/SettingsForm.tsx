@@ -243,13 +243,13 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
   return (
     <div>
       {/* Tabs */}
-      <div className="flex gap-1 rounded-lg border border-[#E2E8F0] bg-white p-1 shadow-sm">
+      <div className="flex gap-1 overflow-x-auto rounded-lg border border-[#E2E8F0] bg-white p-1 shadow-sm">
         {TABS.map((t) => (
           <button
             key={t.key}
             type="button"
             onClick={() => { setTab(t.key); setSaveMsg(null); }}
-            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            className={`min-h-[44px] shrink-0 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors ${
               tab === t.key
                 ? "bg-[#1C3FCF] text-white"
                 : "text-slate-700 hover:bg-[#E2E8F0] hover:text-slate-900"

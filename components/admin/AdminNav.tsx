@@ -45,7 +45,7 @@ export function AdminNav() {
   }
 
   return (
-    <nav className="w-full border-b border-[#E2E8F0] bg-[#F8FAFF]">
+    <nav className="hidden w-full border-b border-[#E2E8F0] bg-[#F8FAFF] md:block">
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-2">
         <div className="flex items-center gap-1">
           {navItems.map((item) => {

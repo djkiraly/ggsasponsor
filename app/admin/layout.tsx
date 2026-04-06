@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AdminNav } from "@/components/admin/AdminNav";
+import { AdminBottomNav } from "@/components/admin/AdminBottomNav";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { getAdminServerSession } from "@/auth";
@@ -31,8 +32,9 @@ export default async function AdminLayout({
     <div className="flex min-h-screen flex-col bg-white">
       <Header title="GGSA Admin Portal" />
       <AdminNav />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-20 pt-8 md:pb-8">{children}</main>
       <Footer />
+      <AdminBottomNav />
     </div>
   );
 }

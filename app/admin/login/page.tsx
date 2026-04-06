@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -23,7 +23,7 @@ export default function AdminLoginPage() {
 
   const { executeRecaptcha } = useRecaptcha(recaptchaSettings.siteKey, recaptchaSettings.enabled);
 
-  useState(() => {
+  useEffect(() => {
     fetch("/api/settings")
       .then((r) => r.json())
       .then((s) => {
@@ -32,7 +32,7 @@ export default function AdminLoginPage() {
         }
       })
       .catch(() => {});
-  });
+  }, []);
 
   const initialError = searchParams.get("error");
 

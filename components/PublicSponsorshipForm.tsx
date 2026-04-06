@@ -12,8 +12,10 @@ import { useRouter } from "next/navigation";
 
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { MobileStepIndicator } from "@/components/MobileStepIndicator";
 import { PaymentMethodType, SponsorshipType } from "@/lib/validations";
 import { useRecaptcha } from "@/lib/useRecaptcha";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 type SettingsMap = Record<string, string>;
 
@@ -654,6 +656,61 @@ export function PublicSponsorshipForm({
 
   const showBannerUpload = sponsorshipType === "banner" || sponsorshipType === "both";
 
+  // ── Mobile wizard ──
+  const isMobile = useIsMobile();
+  const [wizardStep, setWizardStep] = useState(0);
+
+  const showJerseyColors = sponsorshipType === "team" || sponsorshipType === "both";
+
+  type WizardStepDef = { id: string; label: string };
+  const wizardSteps: WizardStepDef[] = [
+    { id: "info", label: "Your Info" },
+    { id: "type", label: "Sponsorship" },
+    ...(showJerseyColors ? [{ id: "colors", label: "Colors" }] : []),
+    { id: "upload", label: "Upload" },
+    { id: "payment", label: "Payment" },
+  ];
+
+  const currentStepId = wizardSteps[wizardStep]?.id ?? "info";
+
+  // Clamp step if sponsorship type changes and removes the colors step
+  useEffect(() => {
+    if (wizardStep >= wizardSteps.length) {
+      setWizardStep(wizardSteps.length - 1);
+    }
+  }, [wizardStep, wizardSteps.length]);
+
+  const [wizardError, setWizardError] = useState<string | null>(null);
+
+  function validateWizardStep(): boolean {
+    setWizardError(null);
+    if (currentStepId === "info") {
+      if (!applicant.name.trim()) { setWizardError("Full Name is required."); return false; }
+      if (!applicant.address.trim()) { setWizardError("Street Address is required."); return false; }
+      if (!applicant.city.trim()) { setWizardError("City is required."); return false; }
+      if (!applicant.state.trim()) { setWizardError("State is required."); return false; }
+      if (!applicant.zip.trim()) { setWizardError("ZIP Code is required."); return false; }
+      if (!applicant.phone.trim()) { setWizardError("Phone Number is required."); return false; }
+      if (!applicant.email.trim() || !applicant.email.includes("@")) { setWizardError("A valid Email Address is required."); return false; }
+    }
+    return true;
+  }
+
+  function wizardNext() {
+    if (!validateWizardStep()) return;
+    if (wizardStep < wizardSteps.length - 1) setWizardStep(wizardStep + 1);
+  }
+
+  function wizardBack() {
+    setWizardError(null);
+    if (wizardStep > 0) setWizardStep(wizardStep - 1);
+  }
+
+  function shouldShowSection(sectionId: string): boolean {
+    if (!isMobile) return true;
+    return currentStepId === sectionId;
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <Header logoUrl={settings?.hero_logo_url} />
@@ -665,11 +722,11 @@ export function PublicSponsorshipForm({
             <img
               src={settings.hero_logo_url}
               alt={settings?.org_name || "GGSA"}
-              className="h-32 w-32 flex-shrink-0 rounded-lg border border-[#E2E8F0] bg-white object-contain p-1"
+              className="h-20 w-20 flex-shrink-0 rounded-lg border border-[#E2E8F0] bg-white object-contain p-1 md:h-32 md:w-32"
             />
           ) : (
             <div
-              className="flex h-32 w-32 flex-shrink-0 items-center justify-center rounded-lg border border-[#E2E8F0] bg-[#F8FAFF]"
+              className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-lg border border-[#E2E8F0] bg-[#F8FAFF] md:h-32 md:w-32"
               aria-hidden="true"
             >
               <span className="text-2xl font-bold" style={{ color: "#1C3FCF" }}>GGSA</span>
@@ -696,8 +753,22 @@ export function PublicSponsorshipForm({
         </section>
 
         <div className="mt-8 rounded-lg border border-[#E2E8F0] bg-[#F8FAFF] p-5 shadow-sm">
+          {isMobile && (
+            <MobileStepIndicator
+              currentStep={wizardStep}
+              totalSteps={wizardSteps.length}
+              stepLabels={wizardSteps.map((s) => s.label)}
+            />
+          )}
+
+          {wizardError && isMobile && (
+            <div className="mb-4 rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">
+              {wizardError}
+            </div>
+          )}
+
           <div className="space-y-6">
-            <section aria-label="Your Information">
+            {shouldShowSection("info") && <section aria-label="Your Information">
               <div className="mb-3 text-sm font-semibold" style={{ color: "#1C3FCF" }}>
                 Your Information
               </div>
@@ -785,9 +856,9 @@ export function PublicSponsorshipForm({
                   />
                 </div>
               </div>
-            </section>
+            </section>}
 
-            <section aria-label="Sponsorship Type">
+            {shouldShowSection("type") && <section aria-label="Sponsorship Type">
               <div className="mb-3 text-sm font-semibold" style={{ color: "#1C3FCF" }}>
                 Sponsorship Type
               </div>
@@ -830,9 +901,9 @@ export function PublicSponsorshipForm({
                   );
                 })}
               </div>
-            </section>
+            </section>}
 
-            {(sponsorshipType === "team" || sponsorshipType === "both") && (
+            {(sponsorshipType === "team" || sponsorshipType === "both") && shouldShowSection("colors") && (
               <section aria-label="Jersey Color Selection">
                 <div className="mb-3 text-sm font-semibold" style={{ color: "#1C3FCF" }}>
                   Jersey Colors
@@ -849,7 +920,7 @@ export function PublicSponsorshipForm({
               </section>
             )}
 
-            <section aria-label="Logo and Banner Upload">
+            {shouldShowSection("upload") && <section aria-label="Logo and Banner Upload">
               <div className="mb-3 text-sm font-semibold" style={{ color: "#1C3FCF" }}>
                 Logo / Banner Design Upload
               </div>
@@ -905,9 +976,9 @@ export function PublicSponsorshipForm({
                   </div>
                 ) : null}
               </div>
-            </section>
+            </section>}
 
-            <section aria-label="Payment">
+            {shouldShowSection("payment") && <section aria-label="Payment">
               <div className="mb-3 text-sm font-semibold" style={{ color: "#1C3FCF" }}>
                 Payment Method
               </div>
@@ -1030,7 +1101,44 @@ export function PublicSponsorshipForm({
                   </>
                 )}
               </div>
-            </section>
+            </section>}
+
+            {/* Mobile wizard navigation */}
+            {isMobile && currentStepId !== "payment" && (
+              <div className="flex items-center justify-between gap-3 pt-2">
+                {wizardStep > 0 ? (
+                  <button
+                    type="button"
+                    onClick={wizardBack}
+                    className="min-h-[44px] rounded-md border border-[#E2E8F0] px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-[#F8FAFF]"
+                  >
+                    Back
+                  </button>
+                ) : (
+                  <span />
+                )}
+                <button
+                  type="button"
+                  onClick={wizardNext}
+                  className="min-h-[44px] rounded-md px-5 py-2.5 text-sm font-semibold text-white"
+                  style={{ background: "#1C3FCF" }}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+
+            {isMobile && currentStepId === "payment" && wizardStep > 0 && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={wizardBack}
+                  className="min-h-[44px] rounded-md border border-[#E2E8F0] px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-[#F8FAFF]"
+                >
+                  Back
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>

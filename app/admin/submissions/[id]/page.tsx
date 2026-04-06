@@ -52,7 +52,7 @@ const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
 };
 
 const btnCls =
-  "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-70";
+  "inline-flex min-h-[44px] items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-70";
 
 export default function AdminSubmissionDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -210,7 +210,7 @@ export default function AdminSubmissionDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <Link href="/admin/submissions" className="text-sm font-medium text-[#1C3FCF] hover:underline">
             &larr; Back to Submissions
@@ -337,7 +337,7 @@ export default function AdminSubmissionDetailPage() {
       {role === "admin" && (
       <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFF] p-5 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold" style={{ color: "#1C3FCF" }}>Update Status</h2>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-col gap-3 md:flex-row md:flex-wrap">
           <button
             type="button"
             disabled={saving || item.status === "approved"}

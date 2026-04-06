@@ -156,7 +156,9 @@ export function UsersManager({ currentUserId }: { currentUserId: string }) {
       ) : error ? (
         <p className="text-sm text-red-600">{error}</p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-[#E2E8F0]">
+        <>
+        {/* Desktop table */}
+        <div className="hidden overflow-hidden rounded-lg border border-[#E2E8F0] md:block">
           <table className="w-full text-left text-sm">
             <thead className="bg-[#F8FAFF] text-xs font-semibold uppercase tracking-wider text-slate-700">
               <tr>
@@ -234,6 +236,72 @@ export function UsersManager({ currentUserId }: { currentUserId: string }) {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile card list */}
+        <div className="divide-y divide-[#E2E8F0] overflow-hidden rounded-lg border border-[#E2E8F0] md:hidden">
+          {users.map((u) => (
+            <div key={u.id} className="bg-white px-4 py-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-slate-900">{u.name}</p>
+                  <p className="truncate text-xs text-slate-500">{u.email}</p>
+                </div>
+                <StatusBadge user={u} />
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
+                  u.role === "admin"
+                    ? "bg-[#1C3FCF]/10 text-[#1C3FCF]"
+                    : "bg-slate-100 text-slate-700"
+                }`}>
+                  {u.role === "admin" ? "Admin" : "User"}
+                </span>
+                <span>&#183;</span>
+                <span>{new Date(u.created_at).toLocaleDateString()}</span>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                {u.email_verified && !u.is_active && (
+                  <button
+                    type="button"
+                    onClick={() => handleToggleActive(u)}
+                    className="min-h-[44px] text-sm font-medium text-green-700 hover:underline"
+                  >
+                    Activate
+                  </button>
+                )}
+                {u.is_active && u.id !== currentUserId && (
+                  <button
+                    type="button"
+                    onClick={() => handleToggleActive(u)}
+                    className="min-h-[44px] text-sm font-medium text-orange-600 hover:underline"
+                  >
+                    Deactivate
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing({ id: u.id, name: u.name, email: u.email, role: u.role, password: "" });
+                    setShowCreate(false);
+                  }}
+                  className="min-h-[44px] text-sm font-medium text-[#1C3FCF] hover:underline"
+                >
+                  Edit
+                </button>
+                {u.id !== currentUserId && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(u)}
+                    className="min-h-[44px] text-sm font-medium text-red-600 hover:underline"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        </>
       )}
     </div>
   );

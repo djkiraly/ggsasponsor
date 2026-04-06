@@ -110,7 +110,9 @@ export default async function AdminDashboardPage() {
             <p className="text-sm text-slate-700">No submissions yet.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Desktop table */}
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-[#E2E8F0] text-xs font-semibold uppercase tracking-wider text-slate-700">
                 <tr>
@@ -150,6 +152,38 @@ export default async function AdminDashboardPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile card list */}
+          <div className="divide-y divide-[#E2E8F0] md:hidden">
+            {recentItems.map((item) => {
+              const badge = STATUS_BADGE[item.status] ?? STATUS_BADGE.pending;
+              return (
+                <Link
+                  key={item.id}
+                  href={`/admin/submissions/${item.id}`}
+                  className="flex items-center justify-between px-4 py-3 active:bg-[#F0F4FF]"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-slate-900">{item.name}</p>
+                    {item.company && (
+                      <p className="truncate text-xs text-slate-500">{item.company}</p>
+                    )}
+                    <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                      <span>{TYPE_LABEL[item.sponsorship_type] ?? item.sponsorship_type}</span>
+                      <span>&#183;</span>
+                      <span className="font-medium text-slate-900">{formatUsd(item.amount_paid_cents)}</span>
+                      <span>&#183;</span>
+                      <span>{new Date(item.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  <span className={`ml-3 shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge.cls}`}>
+                    {badge.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+          </>
         )}
       </div>
     </div>
