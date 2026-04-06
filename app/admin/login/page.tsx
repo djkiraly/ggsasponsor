@@ -3,6 +3,10 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+
+import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 
 const AUTH_BASE = "/api/admin/login";
 
@@ -19,6 +23,20 @@ export default function AdminLoginPage() {
 
   if (initialError && !error) {
     setError("Login failed. Please check your email and password.");
+  }
+
+  async function checkLoginStatus(userEmail: string) {
+    try {
+      const res = await fetch("/api/admin/login-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: userEmail }),
+      });
+      if (!res.ok) return null;
+      return await res.json() as { exists: boolean; email_verified: boolean; is_active: boolean };
+    } catch {
+      return null;
+    }
   }
 
   async function onSubmit(e: FormEvent) {
@@ -46,7 +64,15 @@ export default function AdminLoginPage() {
       const data = await res.json();
 
       if (!res.ok || data.error) {
-        setError("Login failed. Please check your email and password.");
+        // Check why login failed
+        const status = await checkLoginStatus(email);
+        if (status?.exists && !status.email_verified) {
+          setError("Please verify your email address. Check your inbox for a verification link.");
+        } else if (status?.exists && !status.is_active) {
+          setError("Your account is pending activation by an administrator.");
+        } else {
+          setError("Invalid email or password.");
+        }
         return;
       }
 
@@ -59,68 +85,82 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50">
-      <div className="w-full max-w-sm">
-        {/* Logo block */}
-        <div className="mb-8 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[#1C3FCF]">
-            <span className="text-lg font-bold text-white">G</span>
-          </div>
-          <h1 className="mt-4 text-xl font-bold text-slate-900">GGSA Admin</h1>
-          <p className="mt-1 text-sm text-slate-500">Sign in to your account</p>
-        </div>
+    <div className="flex min-h-screen flex-col bg-white">
+      <Header title="GGSA Admin Portal" />
 
-        <form
-          onSubmit={onSubmit}
-          className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-          <div className="mb-5">
-            <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-slate-800">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-[#1C3FCF] focus:ring-2 focus:ring-[#1C3FCF]/20"
-              placeholder="you@example.com"
-            />
+      <main className="mx-auto flex w-full max-w-5xl flex-1 items-center justify-center px-4 py-10">
+        <div className="w-full max-w-sm">
+          <div className="mb-6 text-center">
+            <h1 className="text-2xl font-bold" style={{ color: "#1C3FCF" }}>
+              Admin Sign In
+            </h1>
+            <p className="mt-1 text-sm text-slate-700">
+              Sign in to manage sponsorships
+            </p>
           </div>
 
-          <div className="mb-5">
-            <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-slate-800">
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-[#1C3FCF] focus:ring-2 focus:ring-[#1C3FCF]/20"
-              placeholder="Enter your password"
-            />
-          </div>
-
-          {error && (
-            <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-lg bg-[#1C3FCF] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+          <form
+            onSubmit={onSubmit}
+            className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFF] p-6 shadow-sm"
           >
-            {isSubmitting ? "Signing in..." : "Sign In"}
-          </button>
-        </form>
-      </div>
+            <div className="mb-5">
+              <label htmlFor="email" className="mb-1 block text-sm font-semibold text-slate-800">
+                Email
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-md border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#1C3FCF]"
+                placeholder="you@example.com"
+              />
+            </div>
+
+            <div className="mb-5">
+              <label htmlFor="password" className="mb-1 block text-sm font-semibold text-slate-800">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-md border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#1C3FCF]"
+                placeholder="Enter your password"
+              />
+            </div>
+
+            {error && (
+              <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex w-full items-center justify-center rounded-md px-5 py-3 font-semibold text-white"
+              style={{ background: "#1C3FCF", opacity: isSubmitting ? 0.7 : 1 }}
+            >
+              {isSubmitting ? "Signing in..." : "Sign In"}
+            </button>
+
+            <p className="mt-4 text-center text-sm text-slate-700">
+              Don&apos;t have an account?{" "}
+              <Link href="/admin/register" className="font-medium text-[#1C3FCF] hover:underline">
+                Register
+              </Link>
+            </p>
+          </form>
+        </div>
+      </main>
+
+      <Footer />
     </div>
   );
 }

@@ -45,7 +45,7 @@ async function main() {
   if (existing.length > 0) {
     await db
       .update(adminUsers)
-      .set({ password_hash: passwordHash, name: seedName })
+      .set({ password_hash: passwordHash, name: seedName, role: "admin" })
       .where(eq(adminUsers.email, seedEmail));
     // eslint-disable-next-line no-console
     console.log(`Admin user ${seedEmail} updated.`);
@@ -56,6 +56,7 @@ async function main() {
     email: seedEmail,
     password_hash: passwordHash,
     name: seedName,
+    role: "admin",
   });
 }
 

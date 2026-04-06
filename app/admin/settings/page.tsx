@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic";
 
+import { redirect } from "next/navigation";
+import { requireAdminRole } from "@/auth";
 import { requireDb } from "@/lib/db";
 import { settings } from "@/db/schema";
 import { SettingsForm } from "@/components/admin/SettingsForm";
@@ -14,6 +16,8 @@ const SENSITIVE_KEYS = new Set([
 const MASK = "********";
 
 export default async function AdminSettingsPage() {
+  const session = await requireAdminRole();
+  if (!session) redirect("/admin");
   const db = requireDb();
   const rows = await db.select().from(settings);
 
@@ -23,10 +27,10 @@ export default async function AdminSettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-3xl font-bold" style={{ color: "#1C3FCF" }}>Settings</h1>
+        <p className="mt-2 text-slate-700">
           Manage organization details, pricing, and integrations.
         </p>
       </div>

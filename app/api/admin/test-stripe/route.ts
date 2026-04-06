@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { getAdminServerSession } from "@/auth";
+import { requireAdminRole } from "@/auth";
 import { jsonError } from "@/lib/api";
 import { getStripe, getPublishableKey } from "@/lib/stripe";
 
 export async function POST() {
   try {
-    const session = await getAdminServerSession();
-    if (!session) return jsonError("Unauthorized", 401, "UNAUTHORIZED");
+    const session = await requireAdminRole();
+    if (!session) return jsonError("Forbidden", 403, "FORBIDDEN");
 
     const stripe = await getStripe();
     const publishableKey = await getPublishableKey();

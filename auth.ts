@@ -8,6 +8,8 @@ import { requireDb } from "@/lib/db";
 import { adminUsers } from "@/db/schema";
 import { auditLog } from "@/lib/audit";
 
+export type UserRole = "admin" | "user";
+
 function requireSecret(): string {
   const secret = process.env.NEXTAUTH_SECRET;
   if (!secret || secret.length < 32) {
@@ -51,11 +53,22 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        if (!admin.email_verified) {
+          auditLog({ event: "login_blocked", actor: email, detail: { reason: "email_not_verified" } });
+          return null;
+        }
+
+        if (!admin.is_active) {
+          auditLog({ event: "login_blocked", actor: email, detail: { reason: "account_not_active" } });
+          return null;
+        }
+
         auditLog({ event: "login_success", actor: email });
         return {
           id: admin.id,
           email: admin.email,
           name: admin.name,
+          role: admin.role as UserRole,
         };
       },
     }),
@@ -64,13 +77,36 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         (token as { id?: string }).id = (user as { id?: string }).id;
+        (token as { role?: string }).role = (user as { role?: string }).role;
+      }
+      // Refresh role and active status from DB on every token refresh
+      const userId = (token as { id?: string }).id;
+      if (userId) {
+        try {
+          const db = requireDb();
+          const rows = await db
+            .select({ role: adminUsers.role, is_active: adminUsers.is_active })
+            .from(adminUsers)
+            .where(eq(adminUsers.id, userId));
+          if (rows[0]) {
+            if (!rows[0].is_active) {
+              // Force logout for deactivated users
+              return { ...token, id: undefined, role: undefined };
+            }
+            (token as { role?: string }).role = rows[0].role;
+          }
+        } catch {
+          // DB unavailable — keep existing token role
+        }
       }
       return token;
     },
     async session({ session, token }) {
       const id = (token as { id?: string }).id;
-      if (session.user && id) {
+      const role = (token as { role?: string }).role;
+      if (session.user) {
         (session.user as { id?: string }).id = id;
+        (session.user as { role?: string }).role = role;
       }
       return session;
     },
@@ -81,9 +117,16 @@ export function getAdminServerSession() {
   return getServerSession(authOptions);
 }
 
+/** Get session and assert admin role. Returns null if not admin. */
+export async function requireAdminRole() {
+  const session = await getAdminServerSession();
+  if (!session) return null;
+  const role = (session.user as { role?: string })?.role;
+  if (role !== "admin") return null;
+  return session;
+}
+
 // NextAuth's internal typing for `basePath` varies across versions.
 // We set it explicitly so client signOut/signIn endpoints align with our
 // admin-scoped auth route (`/api/admin/login/...`).
 (authOptions as unknown as { basePath?: string }).basePath = "/api/admin/login";
-
-

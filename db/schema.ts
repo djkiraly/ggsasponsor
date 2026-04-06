@@ -1,4 +1,4 @@
-import { integer, pgTable, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 /**
  * Drizzle schema for GGSA sponsorship portal.
@@ -24,6 +24,10 @@ export const sponsorships = pgTable("sponsorships", {
   // Sponsorship
   sponsorship_type: text("sponsorship_type").notNull(), // 'team' | 'banner' | 'both'
   amount_paid_cents: integer("amount_paid_cents").notNull(),
+
+  // Jersey colors (team + both tiers)
+  jersey_color_primary: text("jersey_color_primary"),
+  jersey_color_secondary: text("jersey_color_secondary"),
 
   // Files
   logo_gcs_url: text("logo_gcs_url"),
@@ -51,6 +55,11 @@ export const adminUsers = pgTable("admin_users", {
   email: text("email").notNull().unique(),
   password_hash: text("password_hash").notNull(),
   name: text("name").notNull(),
+  role: text("role").notNull().default("user"), // 'admin' | 'user'
+  email_verified: boolean("email_verified").notNull().default(true),
+  is_active: boolean("is_active").notNull().default(true),
+  verification_token: text("verification_token"),
+  verification_token_expires_at: timestamp("verification_token_expires_at", { withTimezone: true }),
   created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

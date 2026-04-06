@@ -39,6 +39,9 @@ export const CreateSponsorshipBodySchema = z.object({
   sponsorshipType: SponsorshipTypeSchema,
   paymentMethodType: PaymentMethodTypeSchema,
 
+  jerseyColorPrimary: z.string().min(1).optional(),
+  jerseyColorSecondary: z.string().min(1).optional(),
+
   logoGcsUrl: gcsUrlSchema.optional(),
   bannerGcsUrl: gcsUrlSchema.optional(),
 

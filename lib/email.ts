@@ -185,3 +185,166 @@ export function buildReceiptEmail(
 export function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
+
+export function buildVerificationEmail(
+  name: string,
+  verifyUrl: string,
+  settings: SettingsMap
+) {
+  const orgName = settings["org_name"] ?? "Gering Girls Softball Association";
+  const contactEmail = settings["contact_email"] ?? "info@geringgirlssoftball.org";
+
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#ffffff;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;">
+      <tr>
+        <td align="center" style="padding:24px 12px;">
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="background:#1C3FCF;padding:20px 16px;color:#ffffff;">
+                <div style="font-size:18px;font-weight:700;line-height:1.2;">${escapeHtml(orgName)}</div>
+                <div style="font-size:14px;opacity:0.95;margin-top:4px;">Verify Your Email Address</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:22px 16px;color:#1f2937;">
+                <div style="font-size:16px;line-height:1.6;">Hi ${escapeHtml(name)},</div>
+                <div style="height:10px;"></div>
+                <div style="font-size:14px;line-height:1.6;">
+                  Thank you for registering. Please click the button below to verify your email address and complete your registration.
+                </div>
+                <div style="height:20px;"></div>
+                <div style="text-align:center;">
+                  <a href="${escapeHtml(verifyUrl)}" style="display:inline-block;background:#1C3FCF;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600;">Verify Email Address</a>
+                </div>
+                <div style="height:20px;"></div>
+                <div style="font-size:13px;line-height:1.6;color:#6b7280;">
+                  This link expires in 24 hours. If you did not create an account, you can safely ignore this email.
+                </div>
+                <div style="height:10px;"></div>
+                <div style="font-size:12px;line-height:1.6;color:#9ca3af;word-break:break-all;">
+                  If the button above doesn&rsquo;t work, copy and paste this URL into your browser: ${escapeHtml(verifyUrl)}
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="background:#1C3FCF;padding:14px 16px;color:#ffffff;font-size:12px;">
+                ${escapeHtml(orgName)} &bull; ${escapeHtml(contactEmail)}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+export function buildAdminNewUserNotification(
+  userName: string,
+  userEmail: string,
+  adminUrl: string,
+  settings: SettingsMap
+) {
+  const orgName = settings["org_name"] ?? "Gering Girls Softball Association";
+  const contactEmail = settings["contact_email"] ?? "info@geringgirlssoftball.org";
+
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#ffffff;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;">
+      <tr>
+        <td align="center" style="padding:24px 12px;">
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="background:#1C3FCF;padding:20px 16px;color:#ffffff;">
+                <div style="font-size:18px;font-weight:700;line-height:1.2;">${escapeHtml(orgName)}</div>
+                <div style="font-size:14px;opacity:0.95;margin-top:4px;">New User Registration</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:22px 16px;color:#1f2937;">
+                <div style="font-size:14px;line-height:1.6;">
+                  A new user has registered and verified their email address. Please review and activate their account.
+                </div>
+                <div style="height:16px;"></div>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;">
+                  <tr>
+                    <td style="padding:10px 12px;border-bottom:1px solid #E2E8F0;font-size:13px;color:#111827;font-weight:600;">Name</td>
+                    <td style="padding:10px 12px;border-bottom:1px solid #E2E8F0;font-size:13px;color:#111827;">${escapeHtml(userName)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 12px;font-size:13px;color:#111827;font-weight:600;">Email</td>
+                    <td style="padding:10px 12px;font-size:13px;color:#111827;">${escapeHtml(userEmail)}</td>
+                  </tr>
+                </table>
+                <div style="height:20px;"></div>
+                <div style="text-align:center;">
+                  <a href="${escapeHtml(adminUrl)}" style="display:inline-block;background:#1C3FCF;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600;">Review Users</a>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="background:#1C3FCF;padding:14px 16px;color:#ffffff;font-size:12px;">
+                ${escapeHtml(orgName)} &bull; ${escapeHtml(contactEmail)}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+export function buildAccountActivatedEmail(
+  name: string,
+  loginUrl: string,
+  settings: SettingsMap
+) {
+  const orgName = settings["org_name"] ?? "Gering Girls Softball Association";
+  const contactEmail = settings["contact_email"] ?? "info@geringgirlssoftball.org";
+
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#ffffff;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;">
+      <tr>
+        <td align="center" style="padding:24px 12px;">
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="background:#1C3FCF;padding:20px 16px;color:#ffffff;">
+                <div style="font-size:18px;font-weight:700;line-height:1.2;">${escapeHtml(orgName)}</div>
+                <div style="font-size:14px;opacity:0.95;margin-top:4px;">Account Activated</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:22px 16px;color:#1f2937;">
+                <div style="font-size:16px;line-height:1.6;">Hi ${escapeHtml(name)},</div>
+                <div style="height:10px;"></div>
+                <div style="font-size:14px;line-height:1.6;">
+                  Your account has been activated by an administrator. You can now sign in to access the sponsorship portal.
+                </div>
+                <div style="height:20px;"></div>
+                <div style="text-align:center;">
+                  <a href="${escapeHtml(loginUrl)}" style="display:inline-block;background:#1C3FCF;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600;">Sign In</a>
+                </div>
+                <div style="height:16px;"></div>
+                <div style="font-size:13px;line-height:1.6;color:#111827;">
+                  If you have any questions, please reach out to ${escapeHtml(contactEmail)}.
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="background:#1C3FCF;padding:14px 16px;color:#ffffff;font-size:12px;">
+                ${escapeHtml(orgName)} &bull; ${escapeHtml(contactEmail)}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}

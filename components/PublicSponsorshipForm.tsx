@@ -62,6 +62,8 @@ type SponsorshipSubmitPayload = {
   phone: string;
   sponsorshipType: SponsorshipType;
   paymentMethodType: PaymentMethodType;
+  jerseyColorPrimary?: string;
+  jerseyColorSecondary?: string;
   logoGcsUrl?: string;
   bannerGcsUrl?: string;
   stripePaymentIntentId: string;
@@ -76,6 +78,100 @@ async function postSponsorship(payload: SponsorshipSubmitPayload) {
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error ?? "Failed to submit sponsorship");
   return data as { success: boolean; id: string };
+}
+
+const JERSEY_COLORS = [
+  { name: "Red", hex: "#DC2626" },
+  { name: "Blue", hex: "#2563EB" },
+  { name: "Navy", hex: "#1E3A5F" },
+  { name: "Green", hex: "#16A34A" },
+  { name: "Black", hex: "#111827" },
+  { name: "White", hex: "#FFFFFF" },
+  { name: "Yellow", hex: "#EAB308" },
+  { name: "Orange", hex: "#EA580C" },
+  { name: "Purple", hex: "#7C3AED" },
+  { name: "Pink", hex: "#EC4899" },
+];
+
+function JerseyColorPicker({
+  primary,
+  secondary,
+  onPrimaryChange,
+  onSecondaryChange,
+}: {
+  primary: string | null;
+  secondary: string | null;
+  onPrimaryChange: (color: string | null) => void;
+  onSecondaryChange: (color: string | null) => void;
+}) {
+  function handleClick(colorName: string) {
+    if (primary === colorName) {
+      onPrimaryChange(null);
+    } else if (secondary === colorName) {
+      onSecondaryChange(null);
+    } else if (!primary) {
+      onPrimaryChange(colorName);
+    } else if (!secondary) {
+      onSecondaryChange(colorName);
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-3">
+        {JERSEY_COLORS.map((c) => {
+          const isPrimary = primary === c.name;
+          const isSecondary = secondary === c.name;
+          const isSelected = isPrimary || isSecondary;
+
+          return (
+            <button
+              key={c.name}
+              type="button"
+              onClick={() => handleClick(c.name)}
+              className={`flex flex-col items-center gap-1.5 rounded-lg border-2 p-2 transition-colors ${
+                isSelected
+                  ? "border-[#1C3FCF] bg-[#F0F4FF]"
+                  : "border-[#E2E8F0] bg-white hover:border-slate-300"
+              }`}
+              title={c.name}
+              aria-pressed={isSelected}
+            >
+              <div
+                className="h-10 w-10 rounded-full border border-slate-300"
+                style={{ backgroundColor: c.hex }}
+              />
+              <span className="text-xs font-medium text-slate-900">{c.name}</span>
+              {isPrimary && (
+                <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "#1C3FCF" }}>
+                  Primary
+                </span>
+              )}
+              {isSecondary && (
+                <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "#1C3FCF" }}>
+                  Secondary
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {(primary || secondary) && (
+        <div className="mt-3 flex items-center gap-4 text-sm text-slate-700">
+          {primary && (
+            <span>
+              <strong>Primary:</strong> {primary}
+            </span>
+          )}
+          {secondary && (
+            <span>
+              <strong>Secondary:</strong> {secondary}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function PaymentSection(props: {
@@ -93,6 +189,7 @@ function PaymentSection(props: {
     email: string;
     phone: string;
   };
+  jerseyColors: { primary?: string; secondary?: string };
   gcs: { logoGcsUrl?: string; bannerGcsUrl?: string };
   onPaymentClientSecretRefresh?: () => void;
 }) {
@@ -109,7 +206,7 @@ function PaymentSection(props: {
     try {
       if (!stripe || !elements) throw new Error("Payment system not ready");
 
-      const returnUrl = `/thank-you?name=${encodeURIComponent(
+      const returnUrl = `${window.location.origin}/thank-you?name=${encodeURIComponent(
         props.applicant.name
       )}`;
 
@@ -124,7 +221,14 @@ function PaymentSection(props: {
       }
 
       const paymentIntent = result.paymentIntent;
-      if (!paymentIntent || paymentIntent.status !== "succeeded") {
+      if (!paymentIntent) {
+        throw new Error("Payment did not succeed");
+      }
+
+      // Card payments resolve immediately as "succeeded".
+      // ACH (us_bank_account) payments may be "processing" — that is expected;
+      // the webhook will update the status once the bank transfer settles.
+      if (paymentIntent.status !== "succeeded" && paymentIntent.status !== "processing") {
         throw new Error("Payment did not succeed");
       }
 
@@ -133,12 +237,14 @@ function PaymentSection(props: {
         company: props.applicant.company || undefined,
         sponsorshipType: props.sponsorshipType,
         paymentMethodType: props.paymentMethodType,
+        jerseyColorPrimary: props.jerseyColors.primary,
+        jerseyColorSecondary: props.jerseyColors.secondary,
         logoGcsUrl: props.gcs.logoGcsUrl,
         bannerGcsUrl: props.gcs.bannerGcsUrl,
         stripePaymentIntentId: paymentIntent.id,
       });
 
-      window.location.href = `/thank-you?name=${encodeURIComponent(
+      window.location.href = `${window.location.origin}/thank-you?name=${encodeURIComponent(
         props.applicant.name
       )}`;
     } catch (err) {
@@ -218,6 +324,9 @@ export function PublicSponsorshipForm({
     email: "",
     phone: "",
   });
+
+  const [jerseyPrimary, setJerseyPrimary] = useState<string | null>(null);
+  const [jerseySecondary, setJerseySecondary] = useState<string | null>(null);
 
   const [logoGcsUrl, setLogoGcsUrl] = useState<string | undefined>(undefined);
   const [bannerGcsUrl, setBannerGcsUrl] = useState<string | undefined>(undefined);
@@ -354,19 +463,46 @@ export function PublicSponsorshipForm({
 
   return (
     <div className="min-h-screen bg-white">
-      <Header />
+      <Header logoUrl={settings?.hero_logo_url} />
 
       <main className="mx-auto flex w-full max-w-5xl flex-col px-4 py-10">
-        <h1 className="text-3xl font-bold" style={{ color: "#1C3FCF" }}>
-          Become a Sponsor
-        </h1>
+        {/* Hero */}
+        <section className="flex flex-col items-center gap-6 md:flex-row md:items-start">
+          {settings?.hero_logo_url ? (
+            <img
+              src={settings.hero_logo_url}
+              alt={settings?.org_name || "GGSA"}
+              className="h-32 w-32 flex-shrink-0 rounded-lg border border-[#E2E8F0] bg-white object-contain p-1"
+            />
+          ) : (
+            <div
+              className="flex h-32 w-32 flex-shrink-0 items-center justify-center rounded-lg border border-[#E2E8F0] bg-[#F8FAFF]"
+              aria-hidden="true"
+            >
+              <span className="text-2xl font-bold" style={{ color: "#1C3FCF" }}>GGSA</span>
+            </div>
+          )}
+          <div>
+            <div
+              className="prose prose-lg max-w-none text-slate-900 [&_a]:text-[#1C3FCF] [&_a]:underline"
+              dangerouslySetInnerHTML={{
+                __html:
+                  settings?.hero_heading ||
+                  "<p><strong>Gering Girls Softball Association</strong></p>",
+              }}
+            />
+            <div
+              className="mt-3 prose prose-sm max-w-none text-slate-700 [&_a]:text-[#1C3FCF] [&_a]:underline"
+              dangerouslySetInnerHTML={{
+                __html:
+                  settings?.hero_body ||
+                  "<p>GGSA sponsorships help support the girls of Gering\u2019s softball program. Your contribution helps with equipment, training, and more.</p>",
+              }}
+            />
+          </div>
+        </section>
 
-        <p className="mt-3 text-slate-700">
-          GGSA sponsorships help support the girls of Gering&apos;s softball program.
-          Your contribution helps with equipment, training, and more.
-        </p>
-
-        <div className="mt-6 rounded-lg border border-[#E2E8F0] bg-[#F8FAFF] p-5 shadow-sm">
+        <div className="mt-8 rounded-lg border border-[#E2E8F0] bg-[#F8FAFF] p-5 shadow-sm">
           <div className="space-y-6">
             <section aria-label="Your Information">
               <div className="mb-3 text-sm font-semibold" style={{ color: "#1C3FCF" }}>
@@ -489,7 +625,7 @@ export function PublicSponsorshipForm({
                       <div className="text-lg font-bold" style={{ color: "#1C3FCF" }}>
                         {t.title}
                       </div>
-                      <div className="mt-1 font-semibold">
+                      <div className="mt-1 font-semibold text-slate-900">
                         {settings ? formatUsd(priceUsd) : "—"}
                       </div>
                       <ul className="mt-3 list-disc pl-5 text-sm text-slate-700">
@@ -503,6 +639,23 @@ export function PublicSponsorshipForm({
               </div>
             </section>
 
+            {(sponsorshipType === "team" || sponsorshipType === "both") && (
+              <section aria-label="Jersey Color Selection">
+                <div className="mb-3 text-sm font-semibold" style={{ color: "#1C3FCF" }}>
+                  Jersey Colors
+                </div>
+                <p className="mb-3 text-sm text-slate-700">
+                  Select up to two colors for your team jersey (primary and secondary).
+                </p>
+                <JerseyColorPicker
+                  primary={jerseyPrimary}
+                  secondary={jerseySecondary}
+                  onPrimaryChange={setJerseyPrimary}
+                  onSecondaryChange={setJerseySecondary}
+                />
+              </section>
+            )}
+
             <section aria-label="Logo and Banner Upload">
               <div className="mb-3 text-sm font-semibold" style={{ color: "#1C3FCF" }}>
                 Logo / Banner Design Upload
@@ -510,9 +663,9 @@ export function PublicSponsorshipForm({
 
               <div className="space-y-4">
                 <div className="rounded-lg border border-[#E2E8F0] bg-white p-4">
-                  <label className="block text-sm font-semibold">Upload your company logo (optional)</label>
+                  <label className="block text-sm font-semibold text-slate-800">Upload your company logo (optional)</label>
                   <input
-                    className="mt-2 block w-full text-sm"
+                    className="mt-2 block w-full text-sm text-slate-700"
                     type="file"
                     accept="image/png,image/jpeg,application/pdf,image/svg+xml"
                     onChange={async (e) => {
@@ -535,9 +688,9 @@ export function PublicSponsorshipForm({
 
                 {showBannerUpload ? (
                   <div className="rounded-lg border border-[#E2E8F0] bg-white p-4">
-                    <label className="block text-sm font-semibold">Upload your banner design (optional)</label>
+                    <label className="block text-sm font-semibold text-slate-800">Upload your banner design (optional)</label>
                     <input
-                      className="mt-2 block w-full text-sm"
+                      className="mt-2 block w-full text-sm text-slate-700"
                       type="file"
                       accept="image/png,image/jpeg,application/pdf,image/svg+xml"
                       onChange={async (e) => {
@@ -577,7 +730,7 @@ export function PublicSponsorshipForm({
                   }}
                   aria-pressed={paymentMethodType === "card"}
                 >
-                  <div className="font-semibold">Credit / Debit Card</div>
+                  <div className="font-semibold text-slate-900">Credit / Debit Card</div>
                 </button>
                 <button
                   type="button"
@@ -590,7 +743,7 @@ export function PublicSponsorshipForm({
                   }}
                   aria-pressed={paymentMethodType === "us_bank_account"}
                 >
-                  <div className="font-semibold">Bank Account (ACH)</div>
+                  <div className="font-semibold text-slate-900">Bank Account (ACH)</div>
                 </button>
               </div>
 
@@ -627,6 +780,10 @@ export function PublicSponsorshipForm({
                         zip: applicant.zip,
                         email: applicant.email,
                         phone: applicant.phone,
+                      }}
+                      jerseyColors={{
+                        primary: jerseyPrimary ?? undefined,
+                        secondary: jerseySecondary ?? undefined,
                       }}
                       gcs={{
                         logoGcsUrl,

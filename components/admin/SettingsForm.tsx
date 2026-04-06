@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, type ChangeEvent } from "react";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
 
 type Tab = "general" | "stripe" | "gcs" | "gmail";
 
@@ -14,11 +15,11 @@ const TABS: { key: Tab; label: string }[] = [
 const MASK = "********";
 
 const inputCls =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-[#1C3FCF] focus:ring-2 focus:ring-[#1C3FCF]/20";
-const labelCls = "mb-1.5 block text-sm font-semibold text-slate-800";
-const cardCls = "rounded-xl border border-slate-200 bg-white p-6 shadow-sm";
+  "w-full rounded-md border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#1C3FCF]";
+const labelCls = "mb-1 block text-sm font-semibold text-slate-800";
+const cardCls = "rounded-lg border border-[#E2E8F0] bg-[#F8FAFF] p-6 shadow-sm";
 const btnCls =
-  "rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60";
+  "inline-flex items-center justify-center rounded-md px-5 py-3 font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-70";
 
 type TestStatus = { state: "idle" | "loading" | "success" | "error"; message?: string };
 
@@ -30,7 +31,10 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
   const [stripeTest, setStripeTest] = useState<TestStatus>({ state: "idle" });
   const [gcsTest, setGcsTest] = useState<TestStatus>({ state: "idle" });
   const [gmailTest, setGmailTest] = useState<TestStatus>({ state: "idle" });
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoMsg, setLogoMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const logoFileRef = useRef<HTMLInputElement>(null);
 
   function set(key: string, val: string) {
     setValues((prev) => ({ ...prev, [key]: val }));
@@ -82,6 +86,45 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
       setSaveMsg("Upload failed.");
     }
     if (fileRef.current) fileRef.current.value = "";
+  }
+
+  async function uploadLogo(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoUploading(true);
+    setLogoMsg(null);
+    try {
+      // Get a signed upload URL from the admin API
+      const urlRes = await fetch("/api/admin/upload-logo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, contentType: file.type }),
+      });
+      const urlData = await urlRes.json();
+      if (!urlRes.ok) {
+        setLogoMsg(`Error: ${urlData.error || "Failed to get upload URL"}`);
+        return;
+      }
+
+      // Upload the file directly to GCS
+      const putRes = await fetch(urlData.signedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!putRes.ok) {
+        setLogoMsg("Error: File upload to storage failed.");
+        return;
+      }
+
+      set("hero_logo_url", urlData.publicUrl);
+      setLogoMsg("Logo uploaded successfully.");
+    } catch {
+      setLogoMsg("Error: Upload failed.");
+    } finally {
+      setLogoUploading(false);
+      if (logoFileRef.current) logoFileRef.current.value = "";
+    }
   }
 
   async function testGcs() {
@@ -138,6 +181,7 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
   const generalKeys = [
     "org_name", "contact_email", "website", "season_year",
     "price_team_cents", "price_banner_cents", "price_both_cents",
+    "hero_heading", "hero_body",
   ];
   const stripeKeys = ["stripe_secret_key", "stripe_publishable_key", "stripe_webhook_secret"];
   const gcsKeys = ["gcs_bucket_name", "gcs_project_id", "gcs_client_email", "gcs_private_key"];
@@ -146,16 +190,16 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
   return (
     <div>
       {/* Tabs */}
-      <div className="flex gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+      <div className="flex gap-1 rounded-lg border border-[#E2E8F0] bg-white p-1 shadow-sm">
         {TABS.map((t) => (
           <button
             key={t.key}
             type="button"
             onClick={() => { setTab(t.key); setSaveMsg(null); }}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
               tab === t.key
-                ? "bg-[#1C3FCF] text-white shadow-sm"
-                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                ? "bg-[#1C3FCF] text-white"
+                : "text-slate-700 hover:bg-[#E2E8F0] hover:text-slate-900"
             }`}
           >
             {t.label}
@@ -183,10 +227,56 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
             <Field label="Contact Email" value={values.contact_email} onChange={(v) => set("contact_email", v)} type="email" />
             <Field label="Website" value={values.website} onChange={(v) => set("website", v)} type="url" />
             <Field label="Season Year" value={values.season_year} onChange={(v) => set("season_year", v)} />
-            <Field label="Team Sponsorship Price (cents)" value={values.price_team_cents} onChange={(v) => set("price_team_cents", v)} type="number" />
-            <Field label="Banner Sponsorship Price (cents)" value={values.price_banner_cents} onChange={(v) => set("price_banner_cents", v)} type="number" />
-            <Field label="Both Sponsorship Price (cents)" value={values.price_both_cents} onChange={(v) => set("price_both_cents", v)} type="number" />
+            <PriceField label="Team Sponsorship Price" centsValue={values.price_team_cents} onCentsChange={(v) => set("price_team_cents", v)} />
+            <PriceField label="Banner Sponsorship Price" centsValue={values.price_banner_cents} onCentsChange={(v) => set("price_banner_cents", v)} />
+            <PriceField label="Both Sponsorship Price" centsValue={values.price_both_cents} onCentsChange={(v) => set("price_both_cents", v)} />
           </div>
+
+          <h2 className="mb-4 mt-6 text-lg font-semibold text-slate-800">Hero Section</h2>
+          <div className="space-y-4">
+            <div>
+              <label className={labelCls}>Site Logo</label>
+              <div className="flex items-start gap-4">
+                {values.hero_logo_url ? (
+                  <img
+                    src={values.hero_logo_url}
+                    alt="Current site logo"
+                    className="h-20 w-20 rounded-lg border border-[#E2E8F0] object-contain bg-white p-1"
+                  />
+                ) : (
+                  <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-[#E2E8F0] bg-white text-xs text-slate-500">
+                    No logo
+                  </div>
+                )}
+                <div>
+                  <input
+                    ref={logoFileRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                    onChange={uploadLogo}
+                    disabled={logoUploading}
+                    className="text-sm text-slate-700"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">PNG, JPEG, SVG, or WebP. Displayed in the hero section on the public page.</p>
+                  {logoUploading && <p className="mt-1 text-xs text-slate-700">Uploading...</p>}
+                  {logoMsg && (
+                    <p className={`mt-1 text-xs ${logoMsg.startsWith("Error") ? "text-red-600" : "text-green-700"}`}>
+                      {logoMsg}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Hero Heading</label>
+              <RichTextEditor value={values.hero_heading ?? ""} onChange={(v) => set("hero_heading", v)} />
+            </div>
+            <div>
+              <label className={labelCls}>Hero Body</label>
+              <RichTextEditor value={values.hero_body ?? ""} onChange={(v) => set("hero_body", v)} />
+            </div>
+          </div>
+
           <div className="mt-6">
             <button
               type="button"
@@ -207,16 +297,16 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
           <h2 className="mb-4 text-lg font-semibold text-slate-800">Stripe Configuration</h2>
 
           {/* Instructions */}
-          <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+          <div className="mb-6 rounded-md border border-[#E2E8F0] bg-white p-4 text-sm text-slate-700">
             <p className="font-semibold text-slate-800">How to get your Stripe keys:</p>
             <ol className="mt-2 list-inside list-decimal space-y-1.5">
               <li>Log in to your <span className="font-medium">Stripe Dashboard</span> at dashboard.stripe.com</li>
               <li>Navigate to <span className="font-medium">Developers &rarr; API keys</span></li>
-              <li>Copy the <span className="font-medium">Publishable key</span> (starts with <code className="rounded bg-slate-200 px-1 text-xs">pk_</code>) and <span className="font-medium">Secret key</span> (starts with <code className="rounded bg-slate-200 px-1 text-xs">sk_</code>)</li>
+              <li>Copy the <span className="font-medium">Publishable key</span> (starts with <code className="rounded bg-[#E2E8F0] px-1 text-xs">pk_</code>) and <span className="font-medium">Secret key</span> (starts with <code className="rounded bg-[#E2E8F0] px-1 text-xs">sk_</code>)</li>
               <li>For the webhook secret: go to <span className="font-medium">Developers &rarr; Webhooks &rarr; Add endpoint</span></li>
-              <li>Set the endpoint URL to <code className="rounded bg-slate-200 px-1 text-xs">https://yourdomain.com/api/stripe-webhook</code></li>
-              <li>Select events: <code className="rounded bg-slate-200 px-1 text-xs">payment_intent.succeeded</code> and <code className="rounded bg-slate-200 px-1 text-xs">payment_intent.payment_failed</code></li>
-              <li>Copy the <span className="font-medium">Signing secret</span> (starts with <code className="rounded bg-slate-200 px-1 text-xs">whsec_</code>)</li>
+              <li>Set the endpoint URL to <code className="rounded bg-[#E2E8F0] px-1 text-xs">https://yourdomain.com/api/stripe-webhook</code></li>
+              <li>Select events: <code className="rounded bg-[#E2E8F0] px-1 text-xs">payment_intent.succeeded</code> and <code className="rounded bg-[#E2E8F0] px-1 text-xs">payment_intent.payment_failed</code></li>
+              <li>Copy the <span className="font-medium">Signing secret</span> (starts with <code className="rounded bg-[#E2E8F0] px-1 text-xs">whsec_</code>)</li>
             </ol>
             <p className="mt-3 text-xs text-slate-500">
               Use test keys (<code className="rounded bg-slate-200 px-1">pk_test_</code> / <code className="rounded bg-slate-200 px-1">sk_test_</code>) for development. Switch to live keys for production.
@@ -242,7 +332,7 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
               type="button"
               disabled={stripeTest.state === "loading"}
               onClick={testStripe}
-              className={`${btnCls} !bg-white !text-[#1C3FCF] border border-slate-300 !shadow-none hover:!bg-slate-50`}
+              className={`${btnCls} !bg-white !text-[#1C3FCF] border border-[#E2E8F0] hover:!bg-[#F8FAFF]`}
             >
               {stripeTest.state === "loading" ? "Testing..." : "Test Connection"}
             </button>
@@ -303,7 +393,7 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
               type="button"
               disabled={gcsTest.state === "loading"}
               onClick={testGcs}
-              className={`${btnCls} !bg-white !text-[#1C3FCF] border border-slate-300 !shadow-none hover:!bg-slate-50`}
+              className={`${btnCls} !bg-white !text-[#1C3FCF] border border-[#E2E8F0] hover:!bg-[#F8FAFF]`}
             >
               {gcsTest.state === "loading" ? "Testing..." : "Test Connection"}
             </button>
@@ -339,7 +429,7 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
               type="button"
               disabled={gmailTest.state === "loading"}
               onClick={testGmail}
-              className={`${btnCls} !bg-white !text-[#1C3FCF] border border-slate-300 !shadow-none hover:!bg-slate-50`}
+              className={`${btnCls} !bg-white !text-[#1C3FCF] border border-[#E2E8F0] hover:!bg-[#F8FAFF]`}
             >
               {gmailTest.state === "loading" ? "Testing..." : "Test Connection"}
             </button>
@@ -372,6 +462,62 @@ function Field({
   );
 }
 
+function centsToDollars(cents: string | undefined): string {
+  const n = Number.parseInt(cents ?? "0", 10);
+  if (Number.isNaN(n) || n === 0) return "";
+  return (n / 100).toFixed(2);
+}
+
+function PriceField({
+  label, centsValue, onCentsChange,
+}: {
+  label: string; centsValue: string | undefined; onCentsChange: (cents: string) => void;
+}) {
+  const [display, setDisplay] = useState(() => centsToDollars(centsValue));
+  const [focused, setFocused] = useState(false);
+
+  // Sync from parent when not focused (e.g. after save refreshes values)
+  const prevCents = useRef(centsValue);
+  if (!focused && centsValue !== prevCents.current) {
+    prevCents.current = centsValue;
+    setDisplay(centsToDollars(centsValue));
+  }
+
+  function handleBlur() {
+    setFocused(false);
+    const cleaned = display.replace(/[^0-9.]/g, "");
+    const parsed = Number.parseFloat(cleaned);
+    if (cleaned === "" || Number.isNaN(parsed)) {
+      onCentsChange("0");
+      setDisplay("");
+    } else {
+      const cents = Math.round(parsed * 100);
+      onCentsChange(String(cents));
+      setDisplay((cents / 100).toFixed(2));
+    }
+    prevCents.current = undefined; // force re-sync on next render
+  }
+
+  return (
+    <div>
+      <label className={labelCls}>{label}</label>
+      <div className="relative">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">$</span>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={display}
+          onFocus={() => setFocused(true)}
+          onBlur={handleBlur}
+          onChange={(e) => setDisplay(e.target.value)}
+          className={inputCls + " pl-7"}
+          placeholder="0.00"
+        />
+      </div>
+    </div>
+  );
+}
+
 function SecretField({
   label, value, onChange,
 }: {
@@ -394,7 +540,7 @@ function SecretField({
         <button
           type="button"
           onClick={() => setVisible(!visible)}
-          className="rounded-md border border-[#E2E8F0] px-2 text-xs text-slate-700 hover:bg-slate-50"
+          className="rounded-md border border-[#E2E8F0] px-2 text-xs text-slate-700 hover:bg-[#F8FAFF]"
           title={visible ? "Hide" : "Show"}
         >
           {visible ? "Hide" : "Show"}

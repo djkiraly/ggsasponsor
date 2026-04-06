@@ -15,6 +15,9 @@ const PUBLIC_KEYS = new Set([
   "price_banner_cents",
   "price_both_cents",
   "stripe_publishable_key",
+  "hero_heading",
+  "hero_body",
+  "hero_logo_url",
 ]);
 
 export async function GET() {

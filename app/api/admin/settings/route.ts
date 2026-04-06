@@ -4,7 +4,7 @@ import { eq, sql } from "drizzle-orm";
 
 import { requireDb } from "@/lib/db";
 import { jsonError } from "@/lib/api";
-import { getAdminServerSession } from "@/auth";
+import { getAdminServerSession, requireAdminRole } from "@/auth";
 import { auditLog } from "@/lib/audit";
 import { encrypt } from "@/lib/crypto";
 import { invalidateSettingsCache } from "@/lib/settings";
@@ -19,6 +19,9 @@ const ALLOWED_SETTING_KEYS = [
   "contact_email",
   "org_name",
   "website",
+  "hero_heading",
+  "hero_body",
+  "hero_logo_url",
   // GCS
   "gcs_bucket_name",
   "gcs_project_id",
@@ -78,8 +81,8 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   try {
-    const session = await getAdminServerSession();
-    if (!session) return jsonError("Unauthorized", 401, "UNAUTHORIZED");
+    const session = await requireAdminRole();
+    if (!session) return jsonError("Forbidden", 403, "FORBIDDEN");
 
     const db = requireDb();
     const body = BodySchema.parse(await req.json());

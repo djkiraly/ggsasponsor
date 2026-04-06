@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
 
-import { getAdminServerSession } from "@/auth";
+import { requireAdminRole } from "@/auth";
 import { jsonError } from "@/lib/api";
 import { getSettings } from "@/lib/settings";
 
 export async function POST() {
   try {
-    const session = await getAdminServerSession();
-    if (!session) return jsonError("Unauthorized", 401, "UNAUTHORIZED");
+    const session = await requireAdminRole();
+    if (!session) return jsonError("Forbidden", 403, "FORBIDDEN");
 
     const s = await getSettings();
     const clientId = s.gmail_client_id || process.env.GMAIL_CLIENT_ID;

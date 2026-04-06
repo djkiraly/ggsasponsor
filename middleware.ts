@@ -5,10 +5,15 @@ import { getToken } from "next-auth/jwt";
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Never intercept the login page or the NextAuth API routes
+  // Never intercept public auth pages or their API routes
   if (
     pathname === "/admin/login" ||
-    pathname.startsWith("/api/admin/login")
+    pathname === "/admin/register" ||
+    pathname === "/admin/verify-email" ||
+    pathname.startsWith("/api/admin/login") ||
+    pathname === "/api/admin/register" ||
+    pathname === "/api/admin/verify-email" ||
+    pathname === "/api/admin/login-status"
   ) {
     // Forward a request header so the admin layout can skip auth
     const requestHeaders = new Headers(req.headers);

@@ -34,9 +34,11 @@ export async function POST(req: Request) {
     const stripe = await getStripe();
     if (!stripe) return jsonError("Stripe is not configured", 500, "STRIPE_MISSING");
 
-    // Ensure the payment really succeeded before persisting.
+    // Verify the payment status before persisting.
+    // Card payments resolve as "succeeded"; ACH (us_bank_account) payments
+    // may still be "processing" — the webhook updates status once settled.
     const paymentIntent = await stripe.paymentIntents.retrieve(body.stripePaymentIntentId);
-    if (!paymentIntent || paymentIntent.status !== "succeeded") {
+    if (!paymentIntent || (paymentIntent.status !== "succeeded" && paymentIntent.status !== "processing")) {
       return jsonError("Payment not succeeded", 400, "PAYMENT_NOT_SUCCEEDED");
     }
 
@@ -68,11 +70,14 @@ export async function POST(req: Request) {
         sponsorship_type: body.sponsorshipType,
         amount_paid_cents: amountPaidCents,
 
+        jersey_color_primary: body.jerseyColorPrimary ?? null,
+        jersey_color_secondary: body.jerseyColorSecondary ?? null,
+
         logo_gcs_url: body.logoGcsUrl ?? null,
         banner_gcs_url: body.bannerGcsUrl ?? null,
 
         stripe_payment_intent_id: paymentIntent.id,
-        stripe_payment_status: "succeeded",
+        stripe_payment_status: paymentIntent.status,
         payment_method_type: paymentMethodType,
       })
       .returning({ id: sponsorships.id });
