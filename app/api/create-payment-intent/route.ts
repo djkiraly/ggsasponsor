@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   const rl = checkRateLimit({
     key: `create-payment-intent:${ip}`,
     windowMs: 60_000,
-    max: 10,
+    max: 30,
   });
   if (!rl.allowed) return jsonError("Too many requests", 429, "RATE_LIMITED");
 

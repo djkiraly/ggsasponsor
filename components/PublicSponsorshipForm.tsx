@@ -367,11 +367,18 @@ export function PublicSponsorshipForm({
     return Number.parseInt(settings[key] ?? "0", 10);
   }, [settings, sponsorshipType]);
 
+  // Debounce the email so PaymentIntent is only created after user stops typing
+  const [debouncedEmail, setDebouncedEmail] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedEmail(applicant.email), 800);
+    return () => clearTimeout(timer);
+  }, [applicant.email]);
+
   useEffect(() => {
     // Keep amount + PaymentIntent aligned with current tier/payment method.
-    // PaymentIntent is only created when we have stripe + settings + email.
+    // PaymentIntent is only created when we have stripe + settings + a valid email.
     if (!stripePromise || !settings) return;
-    if (!applicant.email) return;
+    if (!debouncedEmail || !debouncedEmail.includes("@")) return;
 
     let mounted = true;
     setIntentLoading(true);
@@ -380,7 +387,7 @@ export function PublicSponsorshipForm({
     createPaymentIntent({
       sponsorshipType,
       paymentMethodType,
-      applicantEmail: applicant.email,
+      applicantEmail: debouncedEmail,
     })
       .then((data) => {
         if (!mounted) return;
@@ -400,7 +407,7 @@ export function PublicSponsorshipForm({
     return () => {
       mounted = false;
     };
-  }, [stripePromise, settings, sponsorshipType, paymentMethodType, applicant.email]);
+  }, [stripePromise, settings, sponsorshipType, paymentMethodType, debouncedEmail]);
 
   const tiers = [
     {
