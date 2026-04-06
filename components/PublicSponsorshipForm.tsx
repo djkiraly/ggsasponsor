@@ -772,7 +772,7 @@ export function PublicSponsorshipForm({
                     Stripe is not configured.
                   </p>
                 ) : clientSecret ? (
-                  <Elements stripe={stripePromise} options={{ clientSecret }}>
+                  <Elements key={clientSecret} stripe={stripePromise} options={{ clientSecret }}>
                     <PaymentSection
                       clientSecret={clientSecret}
                       amountUsd={amountUsd}
