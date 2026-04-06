@@ -244,9 +244,16 @@ function PaymentSection(props: {
         stripePaymentIntentId: paymentIntent.id,
       });
 
-      window.location.href = `${window.location.origin}/thank-you?name=${encodeURIComponent(
-        props.applicant.name
-      )}`;
+      const receiptParams = new URLSearchParams({
+        name: props.applicant.name,
+        email: props.applicant.email,
+        type: props.sponsorshipType,
+        method: props.paymentMethodType,
+        amount: String(props.amountUsd),
+        pi: paymentIntent.id,
+      });
+      if (props.applicant.company) receiptParams.set("company", props.applicant.company);
+      window.location.href = `${window.location.origin}/thank-you?${receiptParams.toString()}`;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Payment failed";
       setError(msg);
