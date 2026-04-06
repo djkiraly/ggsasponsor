@@ -17,7 +17,7 @@ log "Pulling latest code..."
 git pull origin main
 
 log "Installing dependencies..."
-npm ci --omit=dev
+npm ci
 
 log "Running database migrations..."
 npm run db:push
