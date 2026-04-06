@@ -1,9 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-
-import type { UserRole } from "@/auth";
 
 const AUTH_BASE = "/api/admin/login";
 
@@ -14,9 +13,19 @@ const ALL_NAV_ITEMS = [
   { href: "/admin/settings", label: "Settings", roles: ["admin"] },
 ];
 
-export function AdminNav({ role }: { role: UserRole }) {
+export function AdminNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const [role, setRole] = useState<string>("user");
+
+  useEffect(() => {
+    fetch(`${AUTH_BASE}/session`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.user?.role) setRole(data.user.role);
+      })
+      .catch(() => {});
+  }, []);
 
   const navItems = ALL_NAV_ITEMS.filter((item) => item.roles.includes(role));
 

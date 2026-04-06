@@ -34,8 +34,11 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
   const [gmailTest, setGmailTest] = useState<TestStatus>({ state: "idle" });
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoMsg, setLogoMsg] = useState<string | null>(null);
+  const [faviconUploading, setFaviconUploading] = useState(false);
+  const [faviconMsg, setFaviconMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const logoFileRef = useRef<HTMLInputElement>(null);
+  const faviconFileRef = useRef<HTMLInputElement>(null);
 
   function set(key: string, val: string) {
     setValues((prev) => ({ ...prev, [key]: val }));
@@ -128,6 +131,53 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
     }
   }
 
+  async function uploadFavicon(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFaviconUploading(true);
+    setFaviconMsg(null);
+    try {
+      const urlRes = await fetch("/api/admin/upload-logo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: `favicon-${file.name}`, contentType: file.type }),
+      });
+      const urlData = await urlRes.json();
+      if (!urlRes.ok) {
+        setFaviconMsg(`Error: ${urlData.error || "Failed to get upload URL"}`);
+        return;
+      }
+
+      const putRes = await fetch(urlData.signedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!putRes.ok) {
+        setFaviconMsg("Error: File upload failed.");
+        return;
+      }
+
+      set("favicon_url", urlData.publicUrl);
+      // Save immediately
+      const saveRes = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates: { favicon_url: urlData.publicUrl } }),
+      });
+      if (saveRes.ok) {
+        setFaviconMsg("Favicon uploaded and saved.");
+      } else {
+        setFaviconMsg("Favicon uploaded. Click Save to apply.");
+      }
+    } catch {
+      setFaviconMsg("Error: Upload failed.");
+    } finally {
+      setFaviconUploading(false);
+      if (faviconFileRef.current) faviconFileRef.current.value = "";
+    }
+  }
+
   async function testGcs() {
     setGcsTest({ state: "loading" });
     try {
@@ -182,6 +232,7 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
   const generalKeys = [
     "org_name", "contact_email", "website", "season_year",
     "price_team_cents", "price_banner_cents", "price_both_cents",
+    "site_title", "site_description", "footer_text",
     "hero_heading", "hero_body",
   ];
   const stripeKeys = ["stripe_secret_key", "stripe_publishable_key", "stripe_webhook_secret"];
@@ -232,6 +283,66 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
             <PriceField label="Team Sponsorship Price" centsValue={values.price_team_cents} onCentsChange={(v) => set("price_team_cents", v)} />
             <PriceField label="Banner Sponsorship Price" centsValue={values.price_banner_cents} onCentsChange={(v) => set("price_banner_cents", v)} />
             <PriceField label="Both Sponsorship Price" centsValue={values.price_both_cents} onCentsChange={(v) => set("price_both_cents", v)} />
+          </div>
+
+          <h2 className="mb-4 mt-6 text-lg font-semibold text-slate-800">Site &amp; SEO</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Site Title" value={values.site_title} onChange={(v) => set("site_title", v)} />
+            <div className="sm:col-span-2">
+              <label className={labelCls}>Site Description</label>
+              <textarea
+                rows={2}
+                value={values.site_description ?? ""}
+                onChange={(e) => set("site_description", e.target.value)}
+                className={inputCls}
+                placeholder="Shown in search engine results and browser tabs"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelCls}>Favicon</label>
+              <div className="flex items-start gap-4">
+                {values.favicon_url ? (
+                  <img
+                    src={values.favicon_url}
+                    alt="Current favicon"
+                    className="h-10 w-10 rounded border border-[#E2E8F0] bg-white object-contain p-0.5"
+                  />
+                ) : (
+                  <div className="flex h-10 w-10 items-center justify-center rounded border border-dashed border-[#E2E8F0] bg-white text-xs text-slate-500">
+                    None
+                  </div>
+                )}
+                <div>
+                  <input
+                    ref={faviconFileRef}
+                    type="file"
+                    accept="image/png,image/x-icon,image/svg+xml,image/vnd.microsoft.icon"
+                    onChange={uploadFavicon}
+                    disabled={faviconUploading}
+                    className="text-sm text-slate-700"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">PNG, ICO, or SVG. Recommended: 32x32 or 64x64 pixels.</p>
+                  {faviconUploading && <p className="mt-1 text-xs text-slate-700">Uploading...</p>}
+                  {faviconMsg && (
+                    <p className={`mt-1 text-xs ${faviconMsg.startsWith("Error") ? "text-red-600" : "text-green-700"}`}>
+                      {faviconMsg}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <h2 className="mb-4 mt-6 text-lg font-semibold text-slate-800">Footer</h2>
+          <div>
+            <label className={labelCls}>Footer Text</label>
+            <textarea
+              rows={2}
+              value={values.footer_text ?? ""}
+              onChange={(e) => set("footer_text", e.target.value)}
+              className={inputCls}
+              placeholder="Custom text displayed in the footer of all public pages"
+            />
           </div>
 
           <h2 className="mb-4 mt-6 text-lg font-semibold text-slate-800">Hero Section</h2>

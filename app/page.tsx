@@ -2,14 +2,20 @@ import { PublicSponsorshipForm } from "@/components/PublicSponsorshipForm";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { getPublishableKey } from "@/lib/stripe";
+import { getSettings } from "@/lib/settings";
+
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const stripeKey = await getPublishableKey();
 
   if (!stripeKey) {
+    let s: Record<string, string> = {};
+    try { s = await getSettings(); } catch {}
+
     return (
       <div className="min-h-screen bg-white">
-        <Header />
+        <Header logoUrl={s.hero_logo_url} />
         <main className="mx-auto flex w-full max-w-3xl flex-col items-center px-4 py-16 text-center">
           <h1 className="text-2xl font-bold text-slate-800">
             Sponsorship Portal
@@ -19,7 +25,7 @@ export default async function Home() {
             back later.
           </p>
         </main>
-        <Footer />
+        <Footer contactEmail={s.contact_email} footerText={s.footer_text} />
       </div>
     );
   }

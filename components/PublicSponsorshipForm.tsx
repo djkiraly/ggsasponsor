@@ -1035,7 +1035,7 @@ export function PublicSponsorshipForm({
         </div>
       </main>
 
-      <Footer contactEmail={settings?.contact_email} />
+      <Footer contactEmail={settings?.contact_email} footerText={settings?.footer_text} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -36,6 +36,10 @@ export default function ThankYouPage() {
 }
 
 function ThankYouContent() {
+  const [siteSettings, setSiteSettings] = useState<Record<string, string>>({});
+  useEffect(() => {
+    fetch("/api/settings").then((r) => r.json()).then(setSiteSettings).catch(() => {});
+  }, []);
   const searchParams = useSearchParams();
 
   const name = searchParams.get("name")?.trim() || "Sponsor";
@@ -55,7 +59,7 @@ function ThankYouContent() {
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <div className="print:hidden">
-        <Header />
+        <Header logoUrl={siteSettings.hero_logo_url} />
       </div>
 
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-10">
@@ -170,7 +174,7 @@ function ThankYouContent() {
       </main>
 
       <div className="print:hidden">
-        <Footer />
+        <Footer contactEmail={siteSettings.contact_email} footerText={siteSettings.footer_text} />
       </div>
     </div>
   );

@@ -5,7 +5,6 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { getAdminServerSession } from "@/auth";
-import type { UserRole } from "@/auth";
 
 import type { ReactNode } from "react";
 
@@ -28,13 +27,10 @@ export default async function AdminLayout({
     return <>{children}</>;
   }
 
-  const session = await getAdminServerSession();
-  const role = ((session?.user as { role?: string })?.role ?? "user") as UserRole;
-
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <Header title="GGSA Admin Portal" />
-      <AdminNav role={role} />
+      <AdminNav />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
       <Footer />
     </div>
