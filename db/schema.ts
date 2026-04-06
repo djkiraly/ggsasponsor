@@ -36,7 +36,8 @@ export const sponsorships = pgTable("sponsorships", {
   // Payment
   stripe_payment_intent_id: text("stripe_payment_intent_id").unique(),
   stripe_payment_status: text("stripe_payment_status"), // 'pending' | 'succeeded' | 'failed'
-  payment_method_type: text("payment_method_type"), // 'card' | 'us_bank_account'
+  payment_method_type: text("payment_method_type"), // 'card' | 'us_bank_account' | 'check'
+  check_received_by: text("check_received_by"),
 
   // Admin
   notes: text("notes"),

@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { PaymentMethodType, SponsorshipType } from "@/lib/validations";
+import { useRecaptcha } from "@/lib/useRecaptcha";
 
 type SettingsMap = Record<string, string>;
 
@@ -68,6 +69,35 @@ type SponsorshipSubmitPayload = {
   bannerGcsUrl?: string;
   stripePaymentIntentId: string;
 };
+
+type CheckSubmitPayload = {
+  name: string;
+  company?: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  email: string;
+  phone: string;
+  sponsorshipType: SponsorshipType;
+  jerseyColorPrimary?: string;
+  jerseyColorSecondary?: string;
+  logoGcsUrl?: string;
+  bannerGcsUrl?: string;
+  checkReceivedBy: string;
+  amountCents: number;
+};
+
+async function postCheckSponsorship(payload: CheckSubmitPayload) {
+  const res = await fetch("/api/sponsorships/check", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error ?? "Failed to submit sponsorship");
+  return data as { success: boolean; id: string };
+}
 
 async function postSponsorship(payload: SponsorshipSubmitPayload) {
   const res = await fetch("/api/sponsorships", {
@@ -174,6 +204,129 @@ function JerseyColorPicker({
   );
 }
 
+function CheckPaymentSection(props: {
+  sponsorshipType: SponsorshipType;
+  amountCents: number;
+  applicant: {
+    name: string;
+    company?: string;
+    address: string;
+    city: string;
+    state: string;
+    zip: string;
+    email: string;
+    phone: string;
+  };
+  jerseyColors: { primary?: string; secondary?: string };
+  gcs: { logoGcsUrl?: string; bannerGcsUrl?: string };
+  executeRecaptcha: (action: string) => Promise<string | undefined>;
+  recaptchaEnabled: boolean;
+}) {
+  const [receivedBy, setReceivedBy] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const amountUsd = props.amountCents / 100;
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+
+    try {
+      if (!receivedBy.trim()) {
+        throw new Error("Please enter who received the check.");
+      }
+
+      // Verify reCAPTCHA if enabled
+      if (props.recaptchaEnabled) {
+        const recaptchaToken = await props.executeRecaptcha("check_payment");
+        if (recaptchaToken) {
+          const captchaRes = await fetch("/api/admin/verify-recaptcha", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: recaptchaToken, action: "check_payment" }),
+          });
+          const captchaData = await captchaRes.json();
+          if (!captchaData.success) {
+            throw new Error("Security verification failed. Please try again.");
+          }
+        }
+      }
+
+      await postCheckSponsorship({
+        ...props.applicant,
+        company: props.applicant.company || undefined,
+        sponsorshipType: props.sponsorshipType,
+        jerseyColorPrimary: props.jerseyColors.primary,
+        jerseyColorSecondary: props.jerseyColors.secondary,
+        logoGcsUrl: props.gcs.logoGcsUrl,
+        bannerGcsUrl: props.gcs.bannerGcsUrl,
+        checkReceivedBy: receivedBy.trim(),
+        amountCents: props.amountCents,
+      });
+
+      window.location.href = `${window.location.origin}/thank-you?${new URLSearchParams({
+        name: props.applicant.name,
+        email: props.applicant.email,
+        type: props.sponsorshipType,
+        method: "check",
+        amount: String(amountUsd),
+        ...(props.applicant.company ? { company: props.applicant.company } : {}),
+      }).toString()}`;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Submission failed";
+      setError(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-4" aria-label="Check payment form">
+      <div className="rounded-lg border border-[#E2E8F0] bg-white p-4">
+        <div className="text-sm font-semibold text-slate-700">Total</div>
+        <div className="mt-1 text-2xl font-bold" style={{ color: "#1C3FCF" }}>
+          {formatUsd(amountUsd)}
+        </div>
+
+        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3">
+          <p className="text-sm text-amber-800">
+            Make your check payable to <strong>Gering Girls Softball Association</strong>.
+            Your sponsorship will remain in a pending state until the check is received and posted.
+          </p>
+        </div>
+
+        <div className="mt-4">
+          <label className="mb-1 block text-sm font-semibold text-slate-800">
+            Check received by (name of person accepting the check)
+          </label>
+          <input
+            required
+            value={receivedBy}
+            onChange={(e) => setReceivedBy(e.target.value)}
+            className="w-full rounded-md border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#1C3FCF]"
+            placeholder="Enter name"
+          />
+        </div>
+
+        {error ? (
+          <p className="mt-3 text-sm text-red-600" role="alert">{error}</p>
+        ) : null}
+      </div>
+
+      <button
+        type="submit"
+        disabled={submitting}
+        className="inline-flex w-full items-center justify-center rounded-md px-5 py-3 font-semibold text-white"
+        style={{ background: "#1C3FCF", opacity: submitting ? 0.7 : 1 }}
+      >
+        {submitting ? "Submitting..." : `Submit Check Payment — ${formatUsd(amountUsd)}`}
+      </button>
+    </form>
+  );
+}
+
 function PaymentSection(props: {
   clientSecret: string;
   amountUsd: number;
@@ -191,6 +344,8 @@ function PaymentSection(props: {
   };
   jerseyColors: { primary?: string; secondary?: string };
   gcs: { logoGcsUrl?: string; bannerGcsUrl?: string };
+  executeRecaptcha: (action: string) => Promise<string | undefined>;
+  recaptchaEnabled: boolean;
   onPaymentClientSecretRefresh?: () => void;
 }) {
   const stripe = useStripe();
@@ -205,6 +360,22 @@ function PaymentSection(props: {
 
     try {
       if (!stripe || !elements) throw new Error("Payment system not ready");
+
+      // Verify reCAPTCHA if enabled
+      if (props.recaptchaEnabled) {
+        const recaptchaToken = await props.executeRecaptcha("payment");
+        if (recaptchaToken) {
+          const captchaRes = await fetch("/api/admin/verify-recaptcha", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: recaptchaToken, action: "payment" }),
+          });
+          const captchaData = await captchaRes.json();
+          if (!captchaData.success) {
+            throw new Error("Security verification failed. Please try again.");
+          }
+        }
+      }
 
       const returnUrl = `${window.location.origin}/thank-you?name=${encodeURIComponent(
         props.applicant.name
@@ -331,6 +502,12 @@ export function PublicSponsorshipForm({
     email: "",
     phone: "",
   });
+
+  const recaptchaEnabled = settings?.recaptcha_enabled === "true" && !!settings?.recaptcha_site_key;
+  const { executeRecaptcha } = useRecaptcha(
+    settings?.recaptcha_site_key,
+    recaptchaEnabled
+  );
 
   const [jerseyPrimary, setJerseyPrimary] = useState<string | null>(null);
   const [jerseySecondary, setJerseySecondary] = useState<string | null>(null);
@@ -759,56 +936,96 @@ export function PublicSponsorshipForm({
                 >
                   <div className="font-semibold text-slate-900">Bank Account (ACH)</div>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethodType("check")}
+                  className="rounded-lg border px-4 py-3 text-left"
+                  style={{
+                    borderColor: paymentMethodType === "check" ? "#1C3FCF" : "#E2E8F0",
+                    background: paymentMethodType === "check" ? "#F0F4FF" : "#FFFFFF",
+                  }}
+                  aria-pressed={paymentMethodType === "check"}
+                >
+                  <div className="font-semibold text-slate-900">Pay by Check</div>
+                </button>
               </div>
 
               <div className="mt-4">
-                {settingsError ? (
-                  <p className="text-sm text-red-600" role="alert">
-                    {settingsError}
-                  </p>
-                ) : null}
-
-                {intentError ? (
-                  <p className="text-sm text-red-600" role="alert">
-                    {intentError}
-                  </p>
-                ) : null}
-
-                {!stripePromise ? (
-                  <p className="text-sm text-slate-700">
-                    Stripe is not configured.
-                  </p>
-                ) : clientSecret ? (
-                  <Elements key={clientSecret} stripe={stripePromise} options={{ clientSecret }}>
-                    <PaymentSection
-                      clientSecret={clientSecret}
-                      amountUsd={amountUsd}
-                      sponsorshipType={sponsorshipType}
-                      paymentMethodType={paymentMethodType}
-                      applicant={{
-                        name: applicant.name,
-                        company: applicant.company || undefined,
-                        address: applicant.address,
-                        city: applicant.city,
-                        state: applicant.state,
-                        zip: applicant.zip,
-                        email: applicant.email,
-                        phone: applicant.phone,
-                      }}
-                      jerseyColors={{
-                        primary: jerseyPrimary ?? undefined,
-                        secondary: jerseySecondary ?? undefined,
-                      }}
-                      gcs={{
-                        logoGcsUrl,
-                        bannerGcsUrl,
-                      }}
-                    />
-                  </Elements>
+                {paymentMethodType === "check" ? (
+                  <CheckPaymentSection
+                    sponsorshipType={sponsorshipType}
+                    amountCents={priceCents}
+                    applicant={{
+                      name: applicant.name,
+                      company: applicant.company || undefined,
+                      address: applicant.address,
+                      city: applicant.city,
+                      state: applicant.state,
+                      zip: applicant.zip,
+                      email: applicant.email,
+                      phone: applicant.phone,
+                    }}
+                    jerseyColors={{
+                      primary: jerseyPrimary ?? undefined,
+                      secondary: jerseySecondary ?? undefined,
+                    }}
+                    gcs={{ logoGcsUrl, bannerGcsUrl }}
+                    executeRecaptcha={executeRecaptcha}
+                    recaptchaEnabled={recaptchaEnabled}
+                  />
                 ) : (
-                  <p className="text-sm text-slate-700">
-                    {intentLoading ? "Preparing payment..." : "Select options to begin payment."}
-                  </p>
+                  <>
+                    {settingsError ? (
+                      <p className="text-sm text-red-600" role="alert">
+                        {settingsError}
+                      </p>
+                    ) : null}
+
+                    {intentError ? (
+                      <p className="text-sm text-red-600" role="alert">
+                        {intentError}
+                      </p>
+                    ) : null}
+
+                    {!stripePromise ? (
+                      <p className="text-sm text-slate-700">
+                        Stripe is not configured.
+                      </p>
+                    ) : clientSecret ? (
+                      <Elements key={clientSecret} stripe={stripePromise} options={{ clientSecret }}>
+                        <PaymentSection
+                          clientSecret={clientSecret}
+                          amountUsd={amountUsd}
+                          sponsorshipType={sponsorshipType}
+                          paymentMethodType={paymentMethodType}
+                          applicant={{
+                            name: applicant.name,
+                            company: applicant.company || undefined,
+                            address: applicant.address,
+                            city: applicant.city,
+                            state: applicant.state,
+                            zip: applicant.zip,
+                            email: applicant.email,
+                            phone: applicant.phone,
+                          }}
+                          jerseyColors={{
+                            primary: jerseyPrimary ?? undefined,
+                            secondary: jerseySecondary ?? undefined,
+                          }}
+                          gcs={{
+                            logoGcsUrl,
+                            bannerGcsUrl,
+                          }}
+                          executeRecaptcha={executeRecaptcha}
+                          recaptchaEnabled={recaptchaEnabled}
+                        />
+                      </Elements>
+                    ) : (
+                      <p className="text-sm text-slate-700">
+                        {intentLoading ? "Preparing payment..." : "Enter your email to begin payment."}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </section>

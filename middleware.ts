@@ -13,7 +13,8 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/api/admin/login") ||
     pathname === "/api/admin/register" ||
     pathname === "/api/admin/verify-email" ||
-    pathname === "/api/admin/login-status"
+    pathname === "/api/admin/login-status" ||
+    pathname === "/api/admin/verify-recaptcha"
   ) {
     // Forward a request header so the admin layout can skip auth
     const requestHeaders = new Headers(req.headers);

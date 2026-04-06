@@ -7,6 +7,7 @@ import Link from "next/link";
 
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { useRecaptcha } from "@/lib/useRecaptcha";
 
 const AUTH_BASE = "/api/admin/login";
 
@@ -18,6 +19,20 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [recaptchaSettings, setRecaptchaSettings] = useState<{ enabled: boolean; siteKey: string }>({ enabled: false, siteKey: "" });
+
+  const { executeRecaptcha } = useRecaptcha(recaptchaSettings.siteKey, recaptchaSettings.enabled);
+
+  useState(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((s) => {
+        if (s.recaptcha_enabled === "true" && s.recaptcha_site_key) {
+          setRecaptchaSettings({ enabled: true, siteKey: s.recaptcha_site_key });
+        }
+      })
+      .catch(() => {});
+  });
 
   const initialError = searchParams.get("error");
 
@@ -45,6 +60,24 @@ export default function AdminLoginPage() {
     setIsSubmitting(true);
 
     try {
+      // Verify reCAPTCHA if enabled
+      if (recaptchaSettings.enabled) {
+        const recaptchaToken = await executeRecaptcha("login");
+        if (recaptchaToken) {
+          const captchaRes = await fetch("/api/admin/verify-recaptcha", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: recaptchaToken, action: "login" }),
+          });
+          const captchaData = await captchaRes.json();
+          if (!captchaData.success) {
+            setError("Security verification failed. Please try again.");
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
       const csrfRes = await fetch(`${AUTH_BASE}/csrf`);
       const { csrfToken } = await csrfRes.json();
 

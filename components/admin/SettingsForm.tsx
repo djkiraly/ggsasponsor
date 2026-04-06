@@ -3,13 +3,14 @@
 import { useState, useRef, type ChangeEvent } from "react";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 
-type Tab = "general" | "stripe" | "gcs" | "gmail";
+type Tab = "general" | "stripe" | "gcs" | "gmail" | "recaptcha";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "general", label: "General" },
   { key: "stripe", label: "Payments (Stripe)" },
   { key: "gcs", label: "Cloud Storage" },
   { key: "gmail", label: "Email (Gmail)" },
+  { key: "recaptcha", label: "Security" },
 ];
 
 const MASK = "********";
@@ -186,6 +187,7 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
   const stripeKeys = ["stripe_secret_key", "stripe_publishable_key", "stripe_webhook_secret"];
   const gcsKeys = ["gcs_bucket_name", "gcs_project_id", "gcs_client_email", "gcs_private_key"];
   const gmailKeys = ["gmail_client_id", "gmail_client_secret", "gmail_refresh_token", "gmail_from_address"];
+  const recaptchaKeys = ["recaptcha_enabled", "recaptcha_site_key", "recaptcha_secret_key"];
 
   return (
     <div>
@@ -436,6 +438,60 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
           </div>
 
           <StatusBadge status={gmailTest} />
+        </div>
+      )}
+
+      {/* reCAPTCHA Tab */}
+      {tab === "recaptcha" && (
+        <div className={`mt-4 ${cardCls}`}>
+          <h2 className="mb-4 text-lg font-semibold text-slate-800">Google reCAPTCHA v3</h2>
+
+          <div className="mb-6 rounded-md border border-[#E2E8F0] bg-white p-4 text-sm text-slate-700">
+            <p className="font-semibold text-slate-800">How to set up reCAPTCHA:</p>
+            <ol className="mt-2 list-inside list-decimal space-y-1.5">
+              <li>Go to the <span className="font-medium">Google reCAPTCHA Admin Console</span></li>
+              <li>Register a new site and select <span className="font-medium">reCAPTCHA v3</span></li>
+              <li>Add your domain(s) to the allowed list</li>
+              <li>Copy the <span className="font-medium">Site Key</span> and <span className="font-medium">Secret Key</span></li>
+            </ol>
+          </div>
+
+          <div className="mb-4">
+            <label className={labelCls}>Enable reCAPTCHA</label>
+            <button
+              type="button"
+              onClick={() => set("recaptcha_enabled", values.recaptcha_enabled === "true" ? "false" : "true")}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                values.recaptcha_enabled === "true" ? "bg-[#1C3FCF]" : "bg-slate-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                  values.recaptcha_enabled === "true" ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+            <span className="ml-3 text-sm text-slate-700">
+              {values.recaptcha_enabled === "true" ? "Enabled" : "Disabled"}
+            </span>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Site Key" value={values.recaptcha_site_key} onChange={(v) => set("recaptcha_site_key", v)} />
+            <SecretField label="Secret Key" value={values.recaptcha_secret_key} onChange={(v) => set("recaptcha_secret_key", v)} />
+          </div>
+
+          <div className="mt-6">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => save(recaptchaKeys)}
+              className={btnCls}
+              style={{ background: "#1C3FCF" }}
+            >
+              {saving ? "Saving..." : "Save reCAPTCHA Settings"}
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -36,6 +36,10 @@ const ALLOWED_SETTING_KEYS = [
   "stripe_secret_key",
   "stripe_publishable_key",
   "stripe_webhook_secret",
+  // reCAPTCHA
+  "recaptcha_enabled",
+  "recaptcha_site_key",
+  "recaptcha_secret_key",
 ] as const;
 
 const SENSITIVE_KEYS = new Set([
@@ -44,6 +48,7 @@ const SENSITIVE_KEYS = new Set([
   "gmail_refresh_token",
   "stripe_secret_key",
   "stripe_webhook_secret",
+  "recaptcha_secret_key",
 ]);
 
 const MASK = "********";

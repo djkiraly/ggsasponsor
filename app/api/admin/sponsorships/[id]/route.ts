@@ -38,6 +38,9 @@ export async function GET(
 const BodySchema = z.object({
   status: z.enum(["pending", "approved", "rejected"]).optional(),
   notes: z.string().optional(),
+  logo_gcs_url: z.string().url().optional(),
+  banner_gcs_url: z.string().url().optional(),
+  stripe_payment_status: z.enum(["pending", "succeeded", "failed"]).optional(),
 });
 
 export async function PATCH(
@@ -57,9 +60,29 @@ export async function PATCH(
     const set: {
       status?: "pending" | "approved" | "rejected";
       notes?: string;
+      logo_gcs_url?: string;
+      banner_gcs_url?: string;
+      stripe_payment_status?: "pending" | "succeeded" | "failed";
     } = {};
-    if (body.status) set.status = body.status;
+    const role = (session.user as { role?: string })?.role;
+
+    // Status changes require admin role
+    if (body.status) {
+      if (role !== "admin") {
+        return jsonError("Only admins can change submission status", 403, "FORBIDDEN");
+      }
+      set.status = body.status;
+    }
+    // Payment status changes require admin role (e.g., marking check as posted)
+    if (body.stripe_payment_status) {
+      if (role !== "admin") {
+        return jsonError("Only admins can change payment status", 403, "FORBIDDEN");
+      }
+      set.stripe_payment_status = body.stripe_payment_status;
+    }
     if (body.notes !== undefined) set.notes = body.notes;
+    if (body.logo_gcs_url) set.logo_gcs_url = body.logo_gcs_url;
+    if (body.banner_gcs_url) set.banner_gcs_url = body.banner_gcs_url;
 
     if (Object.keys(set).length === 0) {
       return jsonError("No update fields provided", 400, "NO_FIELDS");

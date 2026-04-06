@@ -80,7 +80,7 @@ type ReceiptSponsorship = {
   name: string;
   sponsorship_type: "team" | "banner" | "both";
   amount_paid_cents: number;
-  payment_method_type?: "card" | "us_bank_account";
+  payment_method_type?: "card" | "us_bank_account" | "check";
   created_at?: Date | string | null;
   company?: string | null;
   email: string;
@@ -105,7 +105,11 @@ export function buildReceiptEmail(
         : "Team + Banner";
 
   const paymentMethodLabel =
-    sponsorship.payment_method_type === "us_bank_account" ? "ACH" : "Credit Card";
+    sponsorship.payment_method_type === "check"
+      ? "Check"
+      : sponsorship.payment_method_type === "us_bank_account"
+        ? "ACH"
+        : "Credit Card";
 
   const date = sponsorship.created_at ? new Date(sponsorship.created_at) : new Date();
   const submissionDate = date.toLocaleDateString("en-US", {

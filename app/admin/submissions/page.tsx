@@ -182,7 +182,7 @@ export default function AdminSubmissionsPage() {
                         <td className="px-5 py-3 text-slate-700">{TYPE_LABEL[item.sponsorship_type] ?? item.sponsorship_type}</td>
                         <td className="px-5 py-3 font-medium text-slate-900">{formatUsd(item.amount_paid_cents)}</td>
                         <td className="px-5 py-3 text-slate-700">
-                          {item.payment_method_type === "us_bank_account" ? "ACH" : item.payment_method_type === "card" ? "Card" : item.payment_method_type ?? "—"}
+                          {item.payment_method_type === "us_bank_account" ? "ACH" : item.payment_method_type === "card" ? "Card" : item.payment_method_type === "check" ? "Check" : item.payment_method_type ?? "—"}
                         </td>
                         <td className="px-5 py-3">
                           <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${

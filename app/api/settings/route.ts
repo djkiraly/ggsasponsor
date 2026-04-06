@@ -18,6 +18,8 @@ const PUBLIC_KEYS = new Set([
   "hero_heading",
   "hero_body",
   "hero_logo_url",
+  "recaptcha_enabled",
+  "recaptcha_site_key",
 ]);
 
 export async function GET() {

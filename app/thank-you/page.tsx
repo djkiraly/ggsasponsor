@@ -20,6 +20,7 @@ const SPONSORSHIP_LABELS: Record<string, string> = {
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   card: "Credit / Debit Card",
   us_bank_account: "Bank Account (ACH)",
+  check: "Check",
 };
 
 export default function ThankYouPage() {

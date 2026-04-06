@@ -23,6 +23,7 @@ type Sponsorship = {
   stripe_payment_intent_id: string | null;
   stripe_payment_status: string | null;
   payment_method_type: string | null;
+  check_received_by: string | null;
   notes: string | null;
   status: string;
   created_at: string;
@@ -41,6 +42,7 @@ const TYPE_LABEL: Record<string, string> = {
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   card: "Credit / Debit Card",
   us_bank_account: "Bank Account (ACH)",
+  check: "Check",
 };
 
 const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
@@ -60,6 +62,7 @@ export default function AdminSubmissionDetailPage() {
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
+  const [role, setRole] = useState<string>("user");
 
   async function fetchItem() {
     setLoading(true);
@@ -77,6 +80,51 @@ export default function AdminSubmissionDetailPage() {
   }
 
   useEffect(() => { fetchItem(); }, [id]);
+
+  useEffect(() => {
+    fetch("/api/admin/login/session")
+      .then((res) => res.json())
+      .then((data) => { if (data?.user?.role) setRole(data.user.role); })
+      .catch(() => {});
+  }, []);
+
+  async function saveFileUrl(field: "logo_gcs_url" | "banner_gcs_url", url: string) {
+    setSaving(true);
+    setActionMsg(null);
+    try {
+      const res = await fetch(`/api/admin/sponsorships/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: url }),
+      });
+      if (!res.ok) throw new Error("Failed to save file");
+      setActionMsg(field === "logo_gcs_url" ? "Logo updated." : "Banner updated.");
+      fetchItem();
+    } catch {
+      setActionMsg("Error: Failed to save file.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function markCheckPosted() {
+    setSaving(true);
+    setActionMsg(null);
+    try {
+      const res = await fetch(`/api/admin/sponsorships/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stripe_payment_status: "succeeded" }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      setActionMsg("Check marked as posted.");
+      fetchItem();
+    } catch {
+      setActionMsg("Error: Failed to mark check as posted.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function updateStatus(newStatus: string) {
     setSaving(true);
@@ -182,39 +230,50 @@ export default function AdminSubmissionDetailPage() {
             <Row label="Amount Paid" value={formatUsd(item.amount_paid_cents)} />
             <Row label="Payment Type" value={PAYMENT_METHOD_LABEL[item.payment_method_type ?? ""] ?? item.payment_method_type ?? "Unknown"} />
             <Row label="Payment Status" value={item.stripe_payment_status ?? "unknown"} />
+            {item.check_received_by && <Row label="Check Received By" value={item.check_received_by} />}
             {item.jersey_color_primary && <Row label="Jersey Primary" value={item.jersey_color_primary} />}
             {item.jersey_color_secondary && <Row label="Jersey Secondary" value={item.jersey_color_secondary} />}
             <Row label="Submitted" value={new Date(item.created_at).toLocaleString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })} />
             {item.stripe_payment_intent_id && (
               <Row label="Transaction ID" value={item.stripe_payment_intent_id} mono />
             )}
+            {item.payment_method_type === "check" && item.stripe_payment_status === "pending" && role === "admin" && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => markCheckPosted()}
+                  className={`${btnCls} bg-green-600 text-white`}
+                >
+                  {saving ? "Updating..." : "Mark Check as Posted"}
+                </button>
+              </div>
+            )}
           </dl>
         </div>
 
         {/* Files */}
-        {(item.logo_gcs_url || item.banner_gcs_url) && (
-          <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFF] p-5 shadow-sm">
-            <h2 className="mb-4 text-sm font-semibold" style={{ color: "#1C3FCF" }}>Uploaded Files</h2>
-            <div className="space-y-2 text-sm">
-              {item.logo_gcs_url && (
-                <div>
-                  <span className="font-semibold text-slate-700">Logo: </span>
-                  <a href={item.logo_gcs_url} target="_blank" rel="noopener noreferrer" className="text-[#1C3FCF] underline">
-                    View file
-                  </a>
-                </div>
-              )}
-              {item.banner_gcs_url && (
-                <div>
-                  <span className="font-semibold text-slate-700">Banner: </span>
-                  <a href={item.banner_gcs_url} target="_blank" rel="noopener noreferrer" className="text-[#1C3FCF] underline">
-                    View file
-                  </a>
-                </div>
-              )}
-            </div>
+        <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFF] p-5 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold" style={{ color: "#1C3FCF" }}>Logo &amp; Banner Files</h2>
+          <FileUploadRow
+            label="Logo"
+            currentUrl={item.logo_gcs_url}
+            uploadType="logo"
+            submissionId={item.id}
+            onUploaded={(url) => saveFileUrl("logo_gcs_url", url)}
+            disabled={saving}
+          />
+          <div className="mt-4">
+            <FileUploadRow
+              label="Banner Design"
+              currentUrl={item.banner_gcs_url}
+              uploadType="banner"
+              submissionId={item.id}
+              onUploaded={(url) => saveFileUrl("banner_gcs_url", url)}
+              disabled={saving}
+            />
           </div>
-        )}
+        </div>
 
         {/* Notes */}
         <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFF] p-5 shadow-sm">
@@ -238,7 +297,8 @@ export default function AdminSubmissionDetailPage() {
         </div>
       </div>
 
-      {/* Status Actions */}
+      {/* Status Actions — admin only */}
+      {role === "admin" && (
       <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFF] p-5 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold" style={{ color: "#1C3FCF" }}>Update Status</h2>
         <div className="flex flex-wrap gap-3">
@@ -268,6 +328,98 @@ export default function AdminSubmissionDetailPage() {
           </button>
         </div>
       </div>
+      )}
+    </div>
+  );
+}
+
+function FileUploadRow({
+  label,
+  currentUrl,
+  uploadType,
+  submissionId,
+  onUploaded,
+  disabled,
+}: {
+  label: string;
+  currentUrl: string | null;
+  uploadType: "logo" | "banner";
+  submissionId: string;
+  onUploaded: (url: string) => void;
+  disabled: boolean;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const maxBytes = uploadType === "logo" ? 10 * 1024 * 1024 : 25 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setUploadError(uploadType === "logo" ? "Logo must be 10MB or less." : "Banner must be 25MB or less.");
+      return;
+    }
+
+    setUploading(true);
+    setUploadError(null);
+
+    try {
+      // Get signed upload URL
+      const urlRes = await fetch("/api/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type || "application/octet-stream",
+          uploadType,
+          submissionId,
+        }),
+      });
+      const urlData = await urlRes.json();
+      if (!urlRes.ok) throw new Error(urlData.error || "Failed to get upload URL");
+
+      // Upload to GCS
+      const putRes = await fetch(urlData.signedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error("File upload failed");
+
+      onUploaded(urlData.publicUrl);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-slate-700">{label}</span>
+        {currentUrl && (
+          <a href={currentUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-[#1C3FCF] underline">
+            View current
+          </a>
+        )}
+      </div>
+      <div className="mt-2">
+        <input
+          type="file"
+          accept="image/png,image/jpeg,application/pdf,image/svg+xml"
+          onChange={handleFile}
+          disabled={disabled || uploading}
+          className="text-sm text-slate-700"
+        />
+      </div>
+      {uploading && <p className="mt-1 text-xs text-slate-500">Uploading...</p>}
+      {uploadError && <p className="mt-1 text-xs text-red-600">{uploadError}</p>}
+      {!currentUrl && !uploading && (
+        <p className="mt-1 text-xs text-slate-500">No file uploaded yet.</p>
+      )}
     </div>
   );
 }
