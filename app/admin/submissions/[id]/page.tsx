@@ -59,10 +59,12 @@ export default function AdminSubmissionDetailPage() {
   const [item, setItem] = useState<Sponsorship | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notes, setNotes] = useState("");
+  const [noteText, setNoteText] = useState("");
+  const [notesList, setNotesList] = useState<{ text: string; author: string; timestamp: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [role, setRole] = useState<string>("user");
+  const [userName, setUserName] = useState("Admin");
 
   async function fetchItem() {
     setLoading(true);
@@ -71,7 +73,17 @@ export default function AdminSubmissionDetailPage() {
       if (!res.ok) throw new Error("Submission not found");
       const data = await res.json();
       setItem(data);
-      setNotes(data.notes ?? "");
+      try {
+        const parsed = data.notes ? JSON.parse(data.notes) : [];
+        setNotesList(Array.isArray(parsed) ? parsed : []);
+      } catch {
+        // Legacy plain-text note — wrap it
+        if (data.notes) {
+          setNotesList([{ text: data.notes, author: "System", timestamp: new Date().toISOString() }]);
+        } else {
+          setNotesList([]);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
@@ -84,7 +96,11 @@ export default function AdminSubmissionDetailPage() {
   useEffect(() => {
     fetch("/api/admin/login/session")
       .then((res) => res.json())
-      .then((data) => { if (data?.user?.role) setRole(data.user.role); })
+      .then((data) => {
+        if (data?.user?.role) setRole(data.user.role);
+        if (data?.user?.name) setUserName(data.user.name);
+        else if (data?.user?.email) setUserName(data.user.email);
+      })
       .catch(() => {});
   }, []);
 
@@ -145,20 +161,26 @@ export default function AdminSubmissionDetailPage() {
     }
   }
 
-  async function saveNotes() {
+  async function addNote() {
+    if (!noteText.trim()) return;
     setSaving(true);
     setActionMsg(null);
     try {
+      const updated = [
+        ...notesList,
+        { text: noteText.trim(), author: userName, timestamp: new Date().toISOString() },
+      ];
       const res = await fetch(`/api/admin/sponsorships/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes }),
+        body: JSON.stringify({ notes: JSON.stringify(updated) }),
       });
-      if (!res.ok) throw new Error("Failed to save notes");
-      setActionMsg("Notes saved.");
+      if (!res.ok) throw new Error("Failed to save note");
+      setNoteText("");
+      setActionMsg("Note added.");
       fetchItem();
     } catch {
-      setActionMsg("Error: Failed to save notes.");
+      setActionMsg("Error: Failed to save note.");
     } finally {
       setSaving(false);
     }
@@ -276,24 +298,38 @@ export default function AdminSubmissionDetailPage() {
         </div>
 
         {/* Notes */}
-        <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFF] p-5 shadow-sm">
+        <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFF] p-5 shadow-sm lg:col-span-2">
           <h2 className="mb-4 text-sm font-semibold" style={{ color: "#1C3FCF" }}>Admin Notes</h2>
           <textarea
-            rows={4}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
             className="w-full rounded-md border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#1C3FCF]"
-            placeholder="Add internal notes about this submission..."
+            placeholder="Add a note..."
           />
           <button
             type="button"
-            disabled={saving}
-            onClick={saveNotes}
+            disabled={saving || !noteText.trim()}
+            onClick={addNote}
             className={`${btnCls} mt-3 text-white`}
             style={{ background: "#1C3FCF" }}
           >
-            {saving ? "Saving..." : "Save Notes"}
+            {saving ? "Saving..." : "Add Note"}
           </button>
+
+          {notesList.length > 0 && (
+            <div className="mt-4 space-y-3">
+              {[...notesList].reverse().map((note, i) => (
+                <div key={i} className="rounded-md border border-[#E2E8F0] bg-white px-4 py-3">
+                  <p className="text-sm text-slate-900 whitespace-pre-wrap">{note.text}</p>
+                  <div className="mt-2 flex items-center gap-3 text-xs text-slate-500">
+                    <span className="font-medium text-slate-700">{note.author}</span>
+                    <span>{new Date(note.timestamp).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -396,16 +432,32 @@ function FileUploadRow({
     }
   }
 
+  const isImage = currentUrl && /\.(png|jpe?g|webp|svg)$/i.test(currentUrl);
+
   return (
     <div>
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-slate-700">{label}</span>
         {currentUrl && (
           <a href={currentUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-[#1C3FCF] underline">
-            View current
+            View full size
           </a>
         )}
       </div>
+      {currentUrl && isImage && (
+        <a href={currentUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block">
+          <img
+            src={currentUrl}
+            alt={label}
+            className="h-28 max-w-full rounded-md border border-[#E2E8F0] bg-white object-contain p-1"
+          />
+        </a>
+      )}
+      {currentUrl && !isImage && (
+        <div className="mt-2 flex h-28 w-28 items-center justify-center rounded-md border border-[#E2E8F0] bg-white">
+          <span className="text-xs text-slate-500">PDF file</span>
+        </div>
+      )}
       <div className="mt-2">
         <input
           type="file"
