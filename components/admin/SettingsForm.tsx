@@ -125,7 +125,16 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
       }
 
       set("hero_logo_url", urlData.publicUrl);
-      setLogoMsg("Logo uploaded successfully.");
+      const saveRes = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates: { hero_logo_url: urlData.publicUrl } }),
+      });
+      if (saveRes.ok) {
+        setLogoMsg("Logo uploaded and saved.");
+      } else {
+        setLogoMsg("Logo uploaded. Click Save to apply.");
+      }
     } catch {
       setLogoMsg("Error: Upload failed.");
     } finally {
@@ -209,7 +218,17 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
       }
 
       set("hero_image_url", urlData.publicUrl);
-      setHeroImageMsg("Hero image uploaded. Click Save to apply.");
+      // Save immediately so the hero image takes effect
+      const saveRes = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates: { hero_image_url: urlData.publicUrl } }),
+      });
+      if (saveRes.ok) {
+        setHeroImageMsg("Hero image uploaded and saved.");
+      } else {
+        setHeroImageMsg("Hero image uploaded. Click Save to apply.");
+      }
     } catch {
       setHeroImageMsg("Error: Upload failed.");
     } finally {
@@ -273,7 +292,7 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
     "org_name", "contact_email", "website", "season_year",
     "price_team_cents", "price_banner_cents", "price_both_cents",
     "site_title", "site_description", "footer_text",
-    "hero_heading", "hero_body",
+    "hero_heading", "hero_body", "hero_logo_url", "hero_image_url",
   ];
   const stripeKeys = ["stripe_secret_key", "stripe_publishable_key", "stripe_webhook_secret"];
   const gcsKeys = ["gcs_bucket_name", "gcs_project_id", "gcs_client_email", "gcs_private_key"];
