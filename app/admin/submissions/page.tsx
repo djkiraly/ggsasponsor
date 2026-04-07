@@ -58,10 +58,21 @@ export default function AdminSubmissionsPage() {
   const [page, setPage] = useState(1);
   const limit = 20;
 
+  const [role, setRole] = useState<string>("user");
+
   const [showReport, setShowReport] = useState(false);
   const [reportEmail, setReportEmail] = useState("");
   const [reportSending, setReportSending] = useState(false);
   const [reportMsg, setReportMsg] = useState<string | null>(null);
+
+  const [showManualAdd, setShowManualAdd] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/login/session")
+      .then((r) => r.json())
+      .then((d) => { if (d?.user?.role) setRole(d.user.role); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 400);
@@ -71,6 +82,8 @@ export default function AdminSubmissionsPage() {
   useEffect(() => {
     setPage(1);
   }, [statusFilter, typeFilter, debouncedSearch]);
+
+  const [fetchKey, setFetchKey] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -100,7 +113,7 @@ export default function AdminSubmissionsPage() {
       });
 
     return () => { mounted = false; };
-  }, [page, statusFilter, typeFilter, debouncedSearch]);
+  }, [page, statusFilter, typeFilter, debouncedSearch, fetchKey]);
 
   const totalPages = data ? Math.ceil(data.total / limit) : 0;
 
@@ -115,8 +128,21 @@ export default function AdminSubmissionsPage() {
         </p>
       </div>
 
-      {/* Email Report */}
-      <div className="flex items-center justify-end">
+      {/* Action buttons */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {role === "admin" && (
+          <button
+            type="button"
+            onClick={() => { setShowManualAdd(!showManualAdd); }}
+            className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ background: "#1C3FCF" }}
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Add Submission
+          </button>
+        )}
         <button
           type="button"
           onClick={() => { setShowReport(!showReport); setReportMsg(null); }}
@@ -178,6 +204,16 @@ export default function AdminSubmissionsPage() {
             </p>
           )}
         </div>
+      )}
+
+      {showManualAdd && (
+        <ManualAddForm
+          onCreated={() => {
+            setShowManualAdd(false);
+            setFetchKey((k) => k + 1);
+          }}
+          onCancel={() => setShowManualAdd(false)}
+        />
       )}
 
       {/* Filter bar */}
@@ -349,5 +385,234 @@ export default function AdminSubmissionsPage() {
         </>
       ) : null}
     </div>
+  );
+}
+
+const JERSEY_COLORS = ["Red", "Blue", "Navy", "Green", "Black", "White", "Yellow", "Orange", "Purple", "Pink"];
+
+const fieldCls =
+  "w-full rounded-md border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#1C3FCF]";
+const labelCls = "mb-1 block text-sm font-semibold text-slate-800";
+
+function ManualAddForm({
+  onCreated,
+  onCancel,
+}: {
+  onCreated: () => void;
+  onCancel: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [zip, setZip] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [sponsorshipType, setSponsorshipType] = useState("team");
+  const [amountDollars, setAmountDollars] = useState("");
+  const [paymentMethodType, setPaymentMethodType] = useState("other");
+  const [paymentStatus, setPaymentStatus] = useState("succeeded");
+  const [status, setStatus] = useState("approved");
+  const [jerseyPrimary, setJerseyPrimary] = useState("");
+  const [jerseySecondary, setJerseySecondary] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const showJerseyColors = sponsorshipType === "team" || sponsorshipType === "both";
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+
+    const cents = Math.round(parseFloat(amountDollars || "0") * 100);
+    if (cents <= 0) {
+      setError("Amount must be greater than $0.");
+      setSaving(false);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/sponsorships", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          company: company || undefined,
+          address,
+          city,
+          state,
+          zip,
+          email,
+          phone,
+          sponsorship_type: sponsorshipType,
+          amount_paid_cents: cents,
+          payment_method_type: paymentMethodType,
+          stripe_payment_status: paymentStatus,
+          status,
+          jersey_color_primary: jerseyPrimary || undefined,
+          jersey_color_secondary: jerseySecondary || undefined,
+          notes: notes || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create submission");
+      }
+      onCreated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create submission");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFF] p-5 shadow-sm">
+      <h3 className="mb-1 text-lg font-semibold text-slate-800">Add Submission Manually</h3>
+      <p className="mb-4 text-xs text-slate-500">Create a submission record for a payment that occurred outside this portal.</p>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className={labelCls}>Full Name *</label>
+          <input required value={name} onChange={(e) => setName(e.target.value)} className={fieldCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Company / Organization</label>
+          <input value={company} onChange={(e) => setCompany(e.target.value)} className={fieldCls} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className={labelCls}>Street Address *</label>
+          <input required value={address} onChange={(e) => setAddress(e.target.value)} className={fieldCls} />
+        </div>
+        <div>
+          <label className={labelCls}>City *</label>
+          <input required value={city} onChange={(e) => setCity(e.target.value)} className={fieldCls} />
+        </div>
+        <div>
+          <label className={labelCls}>State (2-letter) *</label>
+          <input required value={state} onChange={(e) => setState(e.target.value.toUpperCase().slice(0, 2))} maxLength={2} className={fieldCls} />
+        </div>
+        <div>
+          <label className={labelCls}>ZIP Code *</label>
+          <input required value={zip} onChange={(e) => setZip(e.target.value)} className={fieldCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Phone *</label>
+          <input required value={phone} onChange={(e) => setPhone(e.target.value)} className={fieldCls} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className={labelCls}>Email *</label>
+          <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={fieldCls} />
+        </div>
+      </div>
+
+      <hr className="my-5 border-[#E2E8F0]" />
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className={labelCls}>Sponsorship Type *</label>
+          <select value={sponsorshipType} onChange={(e) => setSponsorshipType(e.target.value)} className={fieldCls}>
+            <option value="team">Team</option>
+            <option value="banner">Banner</option>
+            <option value="both">Team + Banner</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Amount Paid ($) *</label>
+          <input
+            required
+            type="number"
+            min="0"
+            step="0.01"
+            value={amountDollars}
+            onChange={(e) => setAmountDollars(e.target.value)}
+            placeholder="0.00"
+            className={fieldCls}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Payment Method</label>
+          <select value={paymentMethodType} onChange={(e) => setPaymentMethodType(e.target.value)} className={fieldCls}>
+            <option value="other">Other / External</option>
+            <option value="check">Check</option>
+            <option value="card">Card</option>
+            <option value="us_bank_account">ACH</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Payment Status</label>
+          <select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)} className={fieldCls}>
+            <option value="succeeded">Completed</option>
+            <option value="pending">Pending</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Submission Status</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className={fieldCls}>
+            <option value="approved">Approved</option>
+            <option value="pending">Pending</option>
+          </select>
+        </div>
+      </div>
+
+      {showJerseyColors && (
+        <>
+          <hr className="my-5 border-[#E2E8F0]" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelCls}>Jersey Primary Color</label>
+              <select value={jerseyPrimary} onChange={(e) => setJerseyPrimary(e.target.value)} className={fieldCls}>
+                <option value="">— None —</option>
+                {JERSEY_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Jersey Secondary Color</label>
+              <select value={jerseySecondary} onChange={(e) => setJerseySecondary(e.target.value)} className={fieldCls}>
+                <option value="">— None —</option>
+                {JERSEY_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+        </>
+      )}
+
+      <hr className="my-5 border-[#E2E8F0]" />
+
+      <div>
+        <label className={labelCls}>Notes (optional)</label>
+        <textarea
+          rows={2}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="e.g. Payment received via Venmo on 3/15"
+          className={fieldCls}
+        />
+      </div>
+
+      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={saving}
+          className="inline-flex items-center justify-center rounded-md px-5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-70"
+          style={{ background: "#1C3FCF" }}
+        >
+          {saving ? "Creating..." : "Create Submission"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center justify-center rounded-md border border-[#E2E8F0] px-5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-[#F8FAFF]"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }

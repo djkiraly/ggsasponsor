@@ -9,6 +9,7 @@ const SENSITIVE_KEYS = new Set([
   "gmail_refresh_token",
   "stripe_secret_key",
   "stripe_webhook_secret",
+  "recaptcha_secret_key",
 ]);
 
 let cache: { data: Record<string, string>; ts: number } | null = null;

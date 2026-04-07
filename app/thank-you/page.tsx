@@ -150,7 +150,7 @@ function ThankYouContent() {
 
           {/* Print footer */}
           <div className="mt-6 hidden border-t border-[#E2E8F0] pt-4 text-center text-xs text-slate-500 print:block">
-            Gering Girls Softball Association &bull; info@geringgirlssoftball.org
+            {siteSettings.org_name || "Gering Girls Softball Association"} &bull; {siteSettings.contact_email || "info@geringgirlssoftball.org"}
           </div>
         </div>
 

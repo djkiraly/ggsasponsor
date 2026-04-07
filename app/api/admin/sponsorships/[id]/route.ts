@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 
 import { requireDb } from "@/lib/db";
 import { jsonError } from "@/lib/api";
-import { getAdminServerSession } from "@/auth";
+import { getAdminServerSession, requireAdminRole } from "@/auth";
 import { auditLog } from "@/lib/audit";
 import { sponsorships } from "@/db/schema";
 
@@ -106,6 +106,37 @@ export async function PATCH(
       { error: "Failed to update sponsorship", code: "ADMIN_SPONSORSHIPS_UPDATE_FAILED" },
       { status: 400 }
     );
+  }
+}
+
+export async function DELETE(
+  _req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await requireAdminRole();
+    if (!session) return jsonError("Forbidden", 403, "FORBIDDEN");
+
+    const db = requireDb();
+    const { id: rawId } = await context.params;
+    const id = z.string().uuid().safeParse(rawId);
+    if (!id.success) return jsonError("Invalid sponsorship ID", 400, "INVALID_ID");
+
+    const existing = await db.select({ id: sponsorships.id }).from(sponsorships).where(eq(sponsorships.id, id.data));
+    if (existing.length === 0) return jsonError("Submission not found", 404, "NOT_FOUND");
+
+    await db.delete(sponsorships).where(eq(sponsorships.id, id.data));
+
+    auditLog({
+      event: "sponsorship_deleted",
+      actor: session.user?.email ?? "unknown",
+      detail: { sponsorshipId: id.data },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("Admin sponsorship delete failed:", err);
+    return jsonError("Failed to delete sponsorship", 500, "ADMIN_SPONSORSHIP_DELETE_FAILED");
   }
 }
 

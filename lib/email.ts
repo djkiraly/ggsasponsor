@@ -39,23 +39,43 @@ function sanitizeHeader(value: string): string {
   return value.replace(/[\r\n]/g, "");
 }
 
+/** RFC 2047 encode a header value if it contains non-ASCII characters. */
+function encodeSubject(value: string): string {
+  const sanitized = sanitizeHeader(value);
+  // Only ASCII — no encoding needed
+  if (/^[\x20-\x7E]*$/.test(sanitized)) return sanitized;
+  const encoded = Buffer.from(sanitized, "utf-8").toString("base64");
+  return `=?UTF-8?B?${encoded}?=`;
+}
+
 export async function sendEmail({ to, subject, html }: SendEmailArgs) {
   const config = await getGmailConfig();
   if (!config) throw new Error("Gmail API is not configured.");
+
+  // Use contact_email as Reply-To so replies reach the org, not the service account
+  let replyTo: string | null = null;
+  try {
+    const s = await getSettings();
+    if (s.contact_email) replyTo = s.contact_email;
+  } catch {
+    // Settings unavailable — skip Reply-To
+  }
 
   const oauth2Client = new google.auth.OAuth2(config.clientId, config.clientSecret);
   oauth2Client.setCredentials({ refresh_token: config.refreshToken });
   const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
-  const rawMessage = [
+  const headers = [
     `From: ${sanitizeHeader(config.fromAddress)}`,
     `To: ${sanitizeHeader(to)}`,
-    `Subject: ${sanitizeHeader(subject)}`,
+    `Subject: ${encodeSubject(subject)}`,
+    ...(replyTo ? [`Reply-To: ${sanitizeHeader(replyTo)}`] : []),
     "MIME-Version: 1.0",
     "Content-Type: text/html; charset=utf-8",
     "",
     html,
-  ].join("\n");
+  ];
+  const rawMessage = headers.join("\n");
 
   const encodedMessage = Buffer.from(rawMessage)
     .toString("base64")

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
 type Sponsorship = {
@@ -51,11 +51,34 @@ const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
   rejected: { cls: "bg-red-100 text-red-800", label: "Rejected" },
 };
 
+const JERSEY_COLOR_HEX: Record<string, string> = {
+  Red: "#DC2626", Blue: "#2563EB", Navy: "#1E3A5F", Green: "#16A34A",
+  Black: "#111827", White: "#FFFFFF", Yellow: "#EAB308", Orange: "#EA580C",
+  Purple: "#7C3AED", Pink: "#EC4899",
+};
+
+function ColorSwatch({ label, colorName }: { label: string; colorName: string }) {
+  const hex = JERSEY_COLOR_HEX[colorName] ?? "#94a3b8";
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-[#E2E8F0] bg-white px-3 py-2">
+      <div
+        className="h-6 w-6 shrink-0 rounded-full border border-slate-300"
+        style={{ backgroundColor: hex }}
+      />
+      <div>
+        <div className="text-xs font-semibold text-slate-500">{label}</div>
+        <div className="text-sm font-medium text-slate-900">{colorName}</div>
+      </div>
+    </div>
+  );
+}
+
 const btnCls =
   "inline-flex min-h-[44px] items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-70";
 
 export default function AdminSubmissionDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [item, setItem] = useState<Sponsorship | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -161,6 +184,23 @@ export default function AdminSubmissionDetailPage() {
     }
   }
 
+  async function handleDelete() {
+    if (!confirm(`Delete submission from "${item?.name}"? This cannot be undone.`)) return;
+    setSaving(true);
+    setActionMsg(null);
+    try {
+      const res = await fetch(`/api/admin/sponsorships/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete");
+      }
+      router.push("/admin/submissions");
+    } catch (err) {
+      setActionMsg(`Error: ${err instanceof Error ? err.message : "Failed to delete submission."}`);
+      setSaving(false);
+    }
+  }
+
   async function addNote() {
     if (!noteText.trim()) return;
     setSaving(true);
@@ -253,8 +293,20 @@ export default function AdminSubmissionDetailPage() {
             <Row label="Payment Type" value={PAYMENT_METHOD_LABEL[item.payment_method_type ?? ""] ?? item.payment_method_type ?? "Unknown"} />
             <Row label="Payment Status" value={item.stripe_payment_status ?? "unknown"} />
             {item.check_received_by && <Row label="Check Received By" value={item.check_received_by} />}
-            {item.jersey_color_primary && <Row label="Jersey Primary" value={item.jersey_color_primary} />}
-            {item.jersey_color_secondary && <Row label="Jersey Secondary" value={item.jersey_color_secondary} />}
+            {(item.sponsorship_type === "team" || item.sponsorship_type === "both") &&
+              (item.jersey_color_primary || item.jersey_color_secondary) && (
+              <div>
+                <dt className="mb-2 font-semibold text-slate-700">Jersey Colors</dt>
+                <dd className="flex flex-wrap gap-3">
+                  {item.jersey_color_primary && (
+                    <ColorSwatch label="Primary" colorName={item.jersey_color_primary} />
+                  )}
+                  {item.jersey_color_secondary && (
+                    <ColorSwatch label="Secondary" colorName={item.jersey_color_secondary} />
+                  )}
+                </dd>
+              </div>
+            )}
             <Row label="Submitted" value={new Date(item.created_at).toLocaleString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })} />
             {item.stripe_payment_intent_id && (
               <Row label="Transaction ID" value={item.stripe_payment_intent_id} mono />
@@ -361,6 +413,17 @@ export default function AdminSubmissionDetailPage() {
             className={`${btnCls} bg-red-600 text-white`}
           >
             Reject
+          </button>
+        </div>
+
+        <div className="mt-4 border-t border-[#E2E8F0] pt-4">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={handleDelete}
+            className={`${btnCls} border border-red-200 bg-red-50 text-red-700 hover:bg-red-100`}
+          >
+            Delete Submission
           </button>
         </div>
       </div>

@@ -77,7 +77,7 @@ export async function POST(req: Request) {
     try {
       await sendEmail({
         to: body.email,
-        subject: "GGSA Sponsorship Confirmation — Check Payment",
+        subject: "GGSA Sponsorship Confirmation - Check Payment",
         html: receiptHtml,
       });
     } catch (err) {
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
       try {
         await sendEmail({
           to: adminTo,
-          subject: "GGSA: New Check Sponsorship — Pending",
+          subject: "GGSA: New Check Sponsorship - Pending",
           html: adminHtml,
         });
       } catch (err) {

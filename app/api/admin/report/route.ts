@@ -122,7 +122,7 @@ export async function POST(req: Request) {
 
     await sendEmail({
       to: body.email,
-      subject: `${orgName} — Sponsorship Report (${items.length} submissions)`,
+      subject: `${orgName} - Sponsorship Report (${items.length} submissions)`,
       html,
     });
 
