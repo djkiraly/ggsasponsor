@@ -22,6 +22,7 @@ const PUBLIC_KEYS = new Set([
   "hero_heading",
   "hero_body",
   "hero_logo_url",
+  "hero_image_url",
   "recaptcha_enabled",
   "recaptcha_site_key",
 ]);

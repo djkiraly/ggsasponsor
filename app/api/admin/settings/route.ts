@@ -26,6 +26,7 @@ const ALLOWED_SETTING_KEYS = [
   "hero_heading",
   "hero_body",
   "hero_logo_url",
+  "hero_image_url",
   // GCS
   "gcs_bucket_name",
   "gcs_project_id",

@@ -36,6 +36,9 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
   const [logoMsg, setLogoMsg] = useState<string | null>(null);
   const [faviconUploading, setFaviconUploading] = useState(false);
   const [faviconMsg, setFaviconMsg] = useState<string | null>(null);
+  const [heroImageUploading, setHeroImageUploading] = useState(false);
+  const [heroImageMsg, setHeroImageMsg] = useState<string | null>(null);
+  const heroImageFileRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const logoFileRef = useRef<HTMLInputElement>(null);
   const faviconFileRef = useRef<HTMLInputElement>(null);
@@ -175,6 +178,43 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
     } finally {
       setFaviconUploading(false);
       if (faviconFileRef.current) faviconFileRef.current.value = "";
+    }
+  }
+
+  async function uploadHeroImage(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setHeroImageUploading(true);
+    setHeroImageMsg(null);
+    try {
+      const urlRes = await fetch("/api/admin/upload-logo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: `hero-${file.name}`, contentType: file.type }),
+      });
+      const urlData = await urlRes.json();
+      if (!urlRes.ok) {
+        setHeroImageMsg(`Error: ${urlData.error || "Failed to get upload URL"}`);
+        return;
+      }
+
+      const putRes = await fetch(urlData.signedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!putRes.ok) {
+        setHeroImageMsg("Error: File upload failed.");
+        return;
+      }
+
+      set("hero_image_url", urlData.publicUrl);
+      setHeroImageMsg("Hero image uploaded. Click Save to apply.");
+    } catch {
+      setHeroImageMsg("Error: Upload failed.");
+    } finally {
+      setHeroImageUploading(false);
+      if (heroImageFileRef.current) heroImageFileRef.current.value = "";
     }
   }
 
@@ -370,11 +410,44 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
                     disabled={logoUploading}
                     className="text-sm text-slate-700"
                   />
-                  <p className="mt-1 text-xs text-slate-500">PNG, JPEG, SVG, or WebP. Displayed in the hero section on the public page.</p>
+                  <p className="mt-1 text-xs text-slate-500">PNG, JPEG, SVG, or WebP. Small logo shown in the header bar.</p>
                   {logoUploading && <p className="mt-1 text-xs text-slate-700">Uploading...</p>}
                   {logoMsg && (
                     <p className={`mt-1 text-xs ${logoMsg.startsWith("Error") ? "text-red-600" : "text-green-700"}`}>
                       {logoMsg}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Hero Image</label>
+              <div className="flex items-start gap-4">
+                {values.hero_image_url ? (
+                  <img
+                    src={values.hero_image_url}
+                    alt="Current hero image"
+                    className="h-20 w-20 rounded-lg border border-[#E2E8F0] object-contain bg-white p-1"
+                  />
+                ) : (
+                  <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-[#E2E8F0] bg-white text-xs text-slate-500">
+                    No image
+                  </div>
+                )}
+                <div>
+                  <input
+                    ref={heroImageFileRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                    onChange={uploadHeroImage}
+                    disabled={heroImageUploading}
+                    className="text-sm text-slate-700"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">PNG, JPEG, SVG, or WebP. Larger image displayed in the hero section on the public sponsorship page.</p>
+                  {heroImageUploading && <p className="mt-1 text-xs text-slate-700">Uploading...</p>}
+                  {heroImageMsg && (
+                    <p className={`mt-1 text-xs ${heroImageMsg.startsWith("Error") ? "text-red-600" : "text-green-700"}`}>
+                      {heroImageMsg}
                     </p>
                   )}
                 </div>

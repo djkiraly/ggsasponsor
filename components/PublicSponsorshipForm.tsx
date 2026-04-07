@@ -206,6 +206,91 @@ function JerseyColorPicker({
   );
 }
 
+function UploadCard({
+  label,
+  description,
+  hint,
+  uploaded,
+  accept,
+  onFile,
+}: {
+  label: string;
+  description: string;
+  hint: string;
+  uploaded: boolean;
+  accept: string;
+  onFile: (f: File) => void;
+}) {
+  const [dragging, setDragging] = useState(false);
+
+  return (
+    <div
+      className={`rounded-lg border-2 border-dashed p-5 text-center transition-colors ${
+        uploaded
+          ? "border-green-300 bg-green-50"
+          : dragging
+            ? "border-[#1C3FCF] bg-[#F0F4FF]"
+            : "border-[#E2E8F0] bg-white"
+      }`}
+      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragging(false);
+        const f = e.dataTransfer.files?.[0];
+        if (f) onFile(f);
+      }}
+    >
+      {uploaded ? (
+        <>
+          <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#16A34A" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <p className="text-sm font-semibold text-green-800">{label} uploaded</p>
+          <label className="mt-2 inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-[#1C3FCF] hover:underline">
+            Replace file
+            <input
+              type="file"
+              className="hidden"
+              accept={accept}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }}
+            />
+          </label>
+        </>
+      ) : (
+        <>
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#F0F4FF]">
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#1C3FCF" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+          </div>
+          <p className="text-sm font-semibold text-slate-900">{label}</p>
+          <p className="mt-1 text-xs text-slate-500">{description}</p>
+          <label
+            className="mt-3 inline-flex min-h-[44px] cursor-pointer items-center justify-center rounded-md px-5 py-2.5 text-sm font-semibold text-white"
+            style={{ background: "#1C3FCF" }}
+          >
+            <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+            Choose File
+            <input
+              type="file"
+              className="hidden"
+              accept={accept}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }}
+            />
+          </label>
+          <p className="mt-2 text-[11px] text-slate-400">{hint}</p>
+          <p className="mt-1 text-[11px] text-slate-400">or drag and drop</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 function CheckPaymentSection(props: {
   sponsorshipType: SponsorshipType;
   amountCents: number;
@@ -256,7 +341,7 @@ function CheckPaymentSection(props: {
         }
       }
 
-      await postCheckSponsorship({
+      const result = await postCheckSponsorship({
         ...props.applicant,
         company: props.applicant.company || undefined,
         sponsorshipType: props.sponsorshipType,
@@ -268,14 +353,16 @@ function CheckPaymentSection(props: {
         amountCents: props.amountCents,
       });
 
-      window.location.href = `${window.location.origin}/thank-you?${new URLSearchParams({
+      const params = new URLSearchParams({
         name: props.applicant.name,
         email: props.applicant.email,
         type: props.sponsorshipType,
         method: "check",
         amount: String(amountUsd),
-        ...(props.applicant.company ? { company: props.applicant.company } : {}),
-      }).toString()}`;
+        sid: result.id,
+      });
+      if (props.applicant.company) params.set("company", props.applicant.company);
+      window.location.href = `${window.location.origin}/thank-you?${params.toString()}`;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Submission failed";
       setError(msg);
@@ -405,7 +492,7 @@ function PaymentSection(props: {
         throw new Error("Payment did not succeed");
       }
 
-      await postSponsorship({
+      const submission = await postSponsorship({
         ...props.applicant,
         company: props.applicant.company || undefined,
         sponsorshipType: props.sponsorshipType,
@@ -424,6 +511,7 @@ function PaymentSection(props: {
         method: props.paymentMethodType,
         amount: String(props.amountUsd),
         pi: paymentIntent.id,
+        sid: submission.id,
       });
       if (props.applicant.company) receiptParams.set("company", props.applicant.company);
       window.location.href = `${window.location.origin}/thank-you?${receiptParams.toString()}`;
@@ -718,9 +806,9 @@ export function PublicSponsorshipForm({
       <main className="mx-auto flex w-full max-w-5xl flex-col px-4 py-10">
         {/* Hero */}
         <section className="flex flex-col items-center gap-6 md:flex-row md:items-start">
-          {settings?.hero_logo_url ? (
+          {(settings?.hero_image_url || settings?.hero_logo_url) ? (
             <img
-              src={settings.hero_logo_url}
+              src={settings.hero_image_url || settings.hero_logo_url}
               alt={settings?.org_name || "GGSA"}
               className="h-20 w-20 flex-shrink-0 rounded-lg border border-[#E2E8F0] bg-white object-contain p-1 md:h-32 md:w-32"
             />
@@ -926,54 +1014,36 @@ export function PublicSponsorshipForm({
               </div>
 
               <div className="space-y-4">
-                <div className="rounded-lg border border-[#E2E8F0] bg-white p-4">
-                  <label className="block text-sm font-semibold text-slate-800">Upload your company logo (optional)</label>
-                  <input
-                    className="mt-2 block w-full text-sm text-slate-700"
-                    type="file"
+                <UploadCard
+                  label="Company Logo"
+                  description="Upload your company logo to be displayed on the jersey and promotional materials."
+                  hint="PNG, JPEG, SVG, or PDF - max 10MB"
+                  uploaded={!!logoGcsUrl}
+                  accept="image/png,image/jpeg,application/pdf,image/svg+xml"
+                  onFile={async (f) => {
+                    try {
+                      await onFileSelected({ uploadType: "logo", file: f });
+                    } catch (err) {
+                      alert(err instanceof Error ? err.message : "Upload failed");
+                    }
+                  }}
+                />
+
+                {showBannerUpload ? (
+                  <UploadCard
+                    label="Banner Design"
+                    description="Upload your banner artwork for the 4x8 ft display at the softball complex."
+                    hint="PNG, JPEG, SVG, or PDF - max 25MB"
+                    uploaded={!!bannerGcsUrl}
                     accept="image/png,image/jpeg,application/pdf,image/svg+xml"
-                    onChange={async (e) => {
-                      const f = e.target.files?.[0];
-                      if (!f) return;
+                    onFile={async (f) => {
                       try {
-                        await onFileSelected({ uploadType: "logo", file: f });
+                        await onFileSelected({ uploadType: "banner", file: f });
                       } catch (err) {
                         alert(err instanceof Error ? err.message : "Upload failed");
                       }
                     }}
-                    aria-label="Upload company logo"
                   />
-                  {logoGcsUrl ? (
-                    <p className="mt-2 text-sm text-slate-700">
-                      Uploaded successfully.
-                    </p>
-                  ) : null}
-                </div>
-
-                {showBannerUpload ? (
-                  <div className="rounded-lg border border-[#E2E8F0] bg-white p-4">
-                    <label className="block text-sm font-semibold text-slate-800">Upload your banner design (optional)</label>
-                    <input
-                      className="mt-2 block w-full text-sm text-slate-700"
-                      type="file"
-                      accept="image/png,image/jpeg,application/pdf,image/svg+xml"
-                      onChange={async (e) => {
-                        const f = e.target.files?.[0];
-                        if (!f) return;
-                        try {
-                          await onFileSelected({ uploadType: "banner", file: f });
-                        } catch (err) {
-                          alert(err instanceof Error ? err.message : "Upload failed");
-                        }
-                      }}
-                      aria-label="Upload banner design"
-                    />
-                    {bannerGcsUrl ? (
-                      <p className="mt-2 text-sm text-slate-700">
-                        Uploaded successfully.
-                      </p>
-                    ) : null}
-                  </div>
                 ) : null}
               </div>
             </section>}
