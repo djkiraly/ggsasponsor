@@ -2,7 +2,7 @@
 
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { Header } from "@/components/Header";
@@ -12,7 +12,6 @@ import { useRecaptcha } from "@/lib/useRecaptcha";
 const AUTH_BASE = "/api/admin/login";
 
 export default function AdminLoginPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [email, setEmail] = useState("");
@@ -109,10 +108,9 @@ export default function AdminLoginPage() {
         return;
       }
 
-      router.push(data.url || "/admin");
+      window.location.assign(data.url || "/admin");
     } catch {
       setError("Login failed. Please try again.");
-    } finally {
       setIsSubmitting(false);
     }
   }

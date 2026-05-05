@@ -164,7 +164,7 @@ pm2 start deploy/ecosystem.config.js --env production
 Verify it's running:
 ```bash
 pm2 status
-curl http://127.0.0.1:3000/api/healthz
+curl http://127.0.0.1:3008/api/healthz
 # Expected: {"status":"ok"}
 ```
 

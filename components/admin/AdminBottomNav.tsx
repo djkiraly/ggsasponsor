@@ -29,6 +29,16 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: "/admin/jersey-colors",
+    label: "Jerseys",
+    roles: ["admin"],
+    icon: (
+      <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 4l-4 4 3 2v10h12V10l3-2-4-4-3 2a4 4 0 01-4 0L7 4z" />
+      </svg>
+    ),
+  },
+  {
     href: "/admin/users",
     label: "Users",
     roles: ["admin"],

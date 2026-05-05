@@ -9,6 +9,7 @@ const AUTH_BASE = "/api/admin/login";
 const ALL_NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", roles: ["admin", "user"] },
   { href: "/admin/submissions", label: "Submissions", roles: ["admin", "user"] },
+  { href: "/admin/jersey-colors", label: "Jersey Colors", roles: ["admin"] },
   { href: "/admin/users", label: "Users", roles: ["admin"] },
   { href: "/admin/settings", label: "Settings", roles: ["admin"] },
 ];
