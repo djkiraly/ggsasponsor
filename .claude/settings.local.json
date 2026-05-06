@@ -13,7 +13,8 @@
       "Bash(npm install:*)",
       "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\('dev:', p.devDependencies?.['@tailwindcss/typography']\\); console.log\\('prod:', p.dependencies?.['@tailwindcss/typography']\\)\")",
       "Bash(chmod +x:*)",
-      "Bash(npx --no-install eslint app/admin/jersey-colors app/api/admin/jersey-colors components/admin/AdminNav.tsx components/admin/AdminBottomNav.tsx)"
+      "Bash(npx --no-install eslint app/admin/jersey-colors app/api/admin/jersey-colors components/admin/AdminNav.tsx components/admin/AdminBottomNav.tsx)",
+      "Bash(npx --no-install eslint components/PublicSponsorshipForm.tsx next.config.ts)"
     ]
   }
 }

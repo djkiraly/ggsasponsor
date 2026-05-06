@@ -8,8 +8,6 @@ import {
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
-import { useRouter } from "next/navigation";
-
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { MobileStepIndicator } from "@/components/MobileStepIndicator";
@@ -90,6 +88,17 @@ type CheckSubmitPayload = {
   amountCents: number;
 };
 
+function extractApiError(data: unknown, fallback: string): string {
+  if (!data || typeof data !== "object") return fallback;
+  const err = (data as { error?: unknown }).error;
+  if (typeof err === "string") return err;
+  if (Array.isArray(err)) {
+    const first = err[0] as { message?: string } | undefined;
+    if (first?.message) return first.message;
+  }
+  return fallback;
+}
+
 async function postCheckSponsorship(payload: CheckSubmitPayload) {
   const res = await fetch("/api/sponsorships/check", {
     method: "POST",
@@ -97,7 +106,7 @@ async function postCheckSponsorship(payload: CheckSubmitPayload) {
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error ?? "Failed to submit sponsorship");
+  if (!res.ok) throw new Error(extractApiError(data, "Failed to submit sponsorship"));
   return data as { success: boolean; id: string };
 }
 
@@ -108,7 +117,7 @@ async function postSponsorship(payload: SponsorshipSubmitPayload) {
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error ?? "Failed to submit sponsorship");
+  if (!res.ok) throw new Error(extractApiError(data, "Failed to submit sponsorship"));
   return data as { success: boolean; id: string };
 }
 
@@ -323,6 +332,9 @@ function CheckPaymentSection(props: {
     try {
       if (!receivedBy.trim()) {
         throw new Error("Please enter who received the check.");
+      }
+      if (!props.amountCents || props.amountCents <= 0) {
+        throw new Error("Pricing is still loading. Please wait a moment and try again.");
       }
 
       // Verify reCAPTCHA if enabled
@@ -652,7 +664,14 @@ export function PublicSponsorshipForm({
     // Keep amount + PaymentIntent aligned with current tier/payment method.
     // PaymentIntent is only created when we have stripe + settings + a valid email.
     // Skip for check payments — no Stripe involved.
-    if (paymentMethodType === "check") return;
+    if (paymentMethodType === "check") {
+      // Drop any stale Stripe client secret so <Elements> won't try to mount
+      // against an obsolete PaymentIntent the next time the user switches back.
+      setClientSecret("");
+      setIntentError(null);
+      setIntentLoading(false);
+      return;
+    }
     if (!stripePromise || !settings) return;
     if (!debouncedEmail || !debouncedEmail.includes("@")) return;
 
